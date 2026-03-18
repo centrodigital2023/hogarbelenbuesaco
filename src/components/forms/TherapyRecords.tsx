@@ -54,7 +54,7 @@ const TherapyRecords = ({ onBack }: Props) => {
       </div>
       <div className="space-y-3 mb-6">
         {residents.map(r => {
-          const e = entries[r.id] || {};
+          const e = entries[r.id] || { attended_monday: false, attended_wednesday: false, attended_friday: false, therapy_type: '', evolution_code: '', observations: '' };
           return (
             <div key={r.id} className="bg-card border border-border rounded-2xl p-5">
               <p className="text-sm font-black text-foreground mb-3">{r.full_name}</p>

@@ -70,7 +70,7 @@ const MedicationAdmin = ({ onBack }: Props) => {
       )}
 
       {medications.map(med => {
-        const rec = adminRecords[med.id] || {};
+        const rec = adminRecords[med.id] || { was_administered: true, check_patient: false, check_medication: false, check_dose: false, check_route: false, check_time: false, dose_given: '', route: '', skip_reason: '', notes: '' };
         return (
           <div key={med.id} className="bg-card border-2 border-border rounded-2xl p-5 mb-4">
             <div className="flex items-center justify-between mb-3">
@@ -79,10 +79,10 @@ const MedicationAdmin = ({ onBack }: Props) => {
                 <p className="text-xs text-muted-foreground">{med.dose} — {med.route} — {med.schedule}</p>
               </div>
               <label className="flex items-center gap-2">
-                <input type="checkbox" checked={rec.was_administered ?? true}
+                <input type="checkbox" checked={rec.was_administered}
                   onChange={e => updateRecord(med.id, 'was_administered', e.target.checked)}
                   className="w-5 h-5 accent-primary" />
-                <span className="text-xs font-bold">{rec.was_administered !== false ? '✅ Administrado' : '❌ No administrado'}</span>
+                <span className="text-xs font-bold">{rec.was_administered ? '✅ Administrado' : '❌ No administrado'}</span>
               </label>
             </div>
             <div className="flex flex-wrap gap-3 mb-3">
@@ -100,9 +100,9 @@ const MedicationAdmin = ({ onBack }: Props) => {
                 </label>
               ))}
             </div>
-            {rec.was_administered === false && (
+            {!rec.was_administered && (
               <input type="text" placeholder="Motivo de no administración"
-                value={rec.skip_reason || ''}
+                value={rec.skip_reason}
                 onChange={e => updateRecord(med.id, 'skip_reason', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm" />
             )}
