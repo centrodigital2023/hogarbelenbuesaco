@@ -189,6 +189,48 @@ export type Database = {
           },
         ]
       }
+      blog_posts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          created_by: string
+          excerpt: string | null
+          featured_image_url: string | null
+          id: string
+          published_at: string | null
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          created_by: string
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          published_at?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          created_by?: string
+          excerpt?: string | null
+          featured_image_url?: string | null
+          id?: string
+          published_at?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       care_plans: {
         Row: {
           approved_by: string | null
@@ -558,6 +600,57 @@ export type Database = {
           },
         ]
       }
+      emergency_plans: {
+        Row: {
+          action_plan: string | null
+          brigade_members: Json | null
+          created_at: string
+          created_by: string
+          drills: Json | null
+          emergency_numbers: Json | null
+          equipment_inspections: Json | null
+          evacuation_routes: Json | null
+          id: string
+          period_semester: number
+          period_year: number
+          responsible: string | null
+          signature_coordinator: string | null
+          signature_responsible: string | null
+        }
+        Insert: {
+          action_plan?: string | null
+          brigade_members?: Json | null
+          created_at?: string
+          created_by: string
+          drills?: Json | null
+          emergency_numbers?: Json | null
+          equipment_inspections?: Json | null
+          evacuation_routes?: Json | null
+          id?: string
+          period_semester: number
+          period_year: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+        }
+        Update: {
+          action_plan?: string | null
+          brigade_members?: Json | null
+          created_at?: string
+          created_by?: string
+          drills?: Json | null
+          emergency_numbers?: Json | null
+          equipment_inspections?: Json | null
+          evacuation_routes?: Json | null
+          id?: string
+          period_semester?: number
+          period_year?: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+        }
+        Relationships: []
+      }
       exam_results: {
         Row: {
           answers: Json
@@ -800,6 +893,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      hazardous_waste: {
+        Row: {
+          compliance_checks: Json | null
+          created_at: string
+          created_by: string
+          disposal_records: Json | null
+          id: string
+          incidents: Json | null
+          inventory_data: Json | null
+          period_month: number
+          period_year: number
+          responsible: string | null
+          signature_coordinator: string | null
+          signature_responsible: string | null
+        }
+        Insert: {
+          compliance_checks?: Json | null
+          created_at?: string
+          created_by: string
+          disposal_records?: Json | null
+          id?: string
+          incidents?: Json | null
+          inventory_data?: Json | null
+          period_month: number
+          period_year: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+        }
+        Update: {
+          compliance_checks?: Json | null
+          created_at?: string
+          created_by?: string
+          disposal_records?: Json | null
+          id?: string
+          incidents?: Json | null
+          inventory_data?: Json | null
+          period_month?: number
+          period_year?: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+        }
+        Relationships: []
       }
       hygiene_kits: {
         Row: {
@@ -1375,6 +1513,66 @@ export type Database = {
           },
         ]
       }
+      payment_vouchers: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          items: Json | null
+          net_paid: number | null
+          payment_date: string
+          payment_method: string | null
+          provider_account: string | null
+          provider_bank: string | null
+          provider_document: string | null
+          provider_name: string
+          provider_role: string | null
+          retentions: number | null
+          status: string | null
+          subtotal: number | null
+          updated_at: string
+          voucher_number: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          items?: Json | null
+          net_paid?: number | null
+          payment_date?: string
+          payment_method?: string | null
+          provider_account?: string | null
+          provider_bank?: string | null
+          provider_document?: string | null
+          provider_name: string
+          provider_role?: string | null
+          retentions?: number | null
+          status?: string | null
+          subtotal?: number | null
+          updated_at?: string
+          voucher_number: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          items?: Json | null
+          net_paid?: number | null
+          payment_date?: string
+          payment_method?: string | null
+          provider_account?: string | null
+          provider_bank?: string | null
+          provider_document?: string | null
+          provider_name?: string
+          provider_role?: string | null
+          retentions?: number | null
+          status?: string | null
+          subtotal?: number | null
+          updated_at?: string
+          voucher_number?: string
+        }
+        Relationships: []
+      }
       performance_evaluations: {
         Row: {
           concept: string | null
@@ -1426,6 +1624,57 @@ export type Database = {
           score_safety?: number | null
           score_teamwork?: number | null
           total_score?: number | null
+        }
+        Relationships: []
+      }
+      pest_control: {
+        Row: {
+          certificates: Json | null
+          company_license: string | null
+          company_name: string | null
+          company_nit: string | null
+          created_at: string
+          created_by: string
+          id: string
+          monitoring_data: Json | null
+          observations: string | null
+          period_quarter: number
+          period_year: number
+          schedule_data: Json | null
+          signature_coordinator: string | null
+          signature_responsible: string | null
+        }
+        Insert: {
+          certificates?: Json | null
+          company_license?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          monitoring_data?: Json | null
+          observations?: string | null
+          period_quarter: number
+          period_year: number
+          schedule_data?: Json | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+        }
+        Update: {
+          certificates?: Json | null
+          company_license?: string | null
+          company_name?: string | null
+          company_nit?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          monitoring_data?: Json | null
+          observations?: string | null
+          period_quarter?: number
+          period_year?: number
+          schedule_data?: Json | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
         }
         Relationships: []
       }
@@ -1750,6 +1999,99 @@ export type Database = {
         }
         Relationships: []
       }
+      sanitation_records: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          legionella_data: Json | null
+          observations: string | null
+          period_month: number
+          period_year: number
+          responsible: string | null
+          sanitary_conditions: Json | null
+          signature_coordinator: string | null
+          signature_responsible: string | null
+          wastewater_systems: Json | null
+          water_tests: Json | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          legionella_data?: Json | null
+          observations?: string | null
+          period_month: number
+          period_year: number
+          responsible?: string | null
+          sanitary_conditions?: Json | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+          wastewater_systems?: Json | null
+          water_tests?: Json | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          legionella_data?: Json | null
+          observations?: string | null
+          period_month?: number
+          period_year?: number
+          responsible?: string | null
+          sanitary_conditions?: Json | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+          wastewater_systems?: Json | null
+          water_tests?: Json | null
+        }
+        Relationships: []
+      }
+      social_media_posts: {
+        Row: {
+          ai_generated: boolean | null
+          api_response: Json | null
+          content_text: string
+          created_at: string
+          created_by: string
+          hashtags: string | null
+          id: string
+          media_urls: Json | null
+          platforms: Json | null
+          published_at: string | null
+          scheduled_at: string | null
+          status: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          api_response?: Json | null
+          content_text?: string
+          created_at?: string
+          created_by: string
+          hashtags?: string | null
+          id?: string
+          media_urls?: Json | null
+          platforms?: Json | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          api_response?: Json | null
+          content_text?: string
+          created_at?: string
+          created_by?: string
+          hashtags?: string | null
+          id?: string
+          media_urls?: Json | null
+          platforms?: Json | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       spiritual_records: {
         Row: {
           activity_type: string | null
@@ -1944,6 +2286,48 @@ export type Database = {
           },
         ]
       }
+      therapy_sessions: {
+        Row: {
+          attendees: Json | null
+          created_at: string
+          created_by: string
+          days_of_week: Json | null
+          frequency: string | null
+          id: string
+          observations: string | null
+          photos: Json | null
+          session_date: string
+          session_time: string | null
+          therapy_name: string
+        }
+        Insert: {
+          attendees?: Json | null
+          created_at?: string
+          created_by: string
+          days_of_week?: Json | null
+          frequency?: string | null
+          id?: string
+          observations?: string | null
+          photos?: Json | null
+          session_date?: string
+          session_time?: string | null
+          therapy_name: string
+        }
+        Update: {
+          attendees?: Json | null
+          created_at?: string
+          created_by?: string
+          days_of_week?: Json | null
+          frequency?: string | null
+          id?: string
+          observations?: string | null
+          photos?: Json | null
+          session_date?: string
+          session_time?: string | null
+          therapy_name?: string
+        }
+        Relationships: []
+      }
       training_courses: {
         Row: {
           content: string | null
@@ -2104,6 +2488,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      waste_management: {
+        Row: {
+          classification_data: Json | null
+          created_at: string
+          created_by: string
+          disposal_data: Json | null
+          id: string
+          observations: string | null
+          period_month: number
+          period_year: number
+          responsible: string | null
+          signature_coordinator: string | null
+          signature_responsible: string | null
+          storage_data: Json | null
+        }
+        Insert: {
+          classification_data?: Json | null
+          created_at?: string
+          created_by: string
+          disposal_data?: Json | null
+          id?: string
+          observations?: string | null
+          period_month: number
+          period_year: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+          storage_data?: Json | null
+        }
+        Update: {
+          classification_data?: Json | null
+          created_at?: string
+          created_by?: string
+          disposal_data?: Json | null
+          id?: string
+          observations?: string | null
+          period_month?: number
+          period_year?: number
+          responsible?: string | null
+          signature_coordinator?: string | null
+          signature_responsible?: string | null
+          storage_data?: Json | null
+        }
+        Relationships: []
       }
     }
     Views: {
