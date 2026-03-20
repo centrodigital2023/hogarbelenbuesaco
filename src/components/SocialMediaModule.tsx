@@ -116,7 +116,7 @@ const SocialMediaModule = ({ onBack }: Props) => {
               <Copy size={14} /> Copiar
             </button>
             <button onClick={shareWhatsApp}
-              className="bg-green-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:opacity-90">
+              className="bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 hover:opacity-90">
               <Send size={14} /> WhatsApp
             </button>
           </div>

@@ -67,7 +67,7 @@ const ManagerialDashboard = ({ onBack }: Props) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Ocupación', value: `${indicators.ocupacion || 0}%`, color: 'text-primary' },
-          { label: 'Incidentes (Mes)', value: indicators.incidentes_mes || 0, color: (indicators.incidentes_mes || 0) > 0 ? 'text-destructive' : 'text-primary' },
+          { label: 'Incidentes (Mes)', value: indicators.incidentes_mes || 0, color: Number(indicators.incidentes_mes || 0) > 0 ? 'text-destructive' : 'text-primary' },
           { label: 'Citas Cumplidas', value: `${indicators.citas_cumplimiento || 0}%`, color: 'text-primary' },
           { label: 'Capacitaciones', value: indicators.capacitaciones || 0, color: 'text-foreground' },
           { label: 'Facturación Emitida', value: `$${(indicators.facturacion_emitida || 0).toLocaleString()}`, color: 'text-foreground' },
