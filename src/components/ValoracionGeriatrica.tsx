@@ -52,12 +52,69 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
       if (score === 100) return "Independiente";
       if (score >= 60) return "Dependencia Leve";
       if (score >= 40) return "Dependencia Moderada";
-      return "Dependencia Severa/Total";
+      if (score >= 20) return "Dependencia Severa";
+      return "Dependencia Total";
+    }
+    if (testKey === 'lawton') {
+      if (score === 8) return "Independencia total";
+      if (score >= 6) return "Dependencia leve";
+      if (score >= 4) return "Dependencia moderada";
+      return "Dependencia severa";
     }
     if (testKey === 'pfeiffer') {
       if (score <= 2) return "Normal";
-      if (score <= 4) return "Deterioro Leve";
-      return "Deterioro Moderado/Severo";
+      if (score <= 4) return "Deterioro cognitivo leve";
+      if (score <= 7) return "Deterioro cognitivo moderado";
+      return "Deterioro cognitivo severo";
+    }
+    if (testKey === 'yesavage') {
+      if (score <= 5) return "Normal – sin depresión";
+      if (score <= 9) return "Depresión leve";
+      return "Depresión severa";
+    }
+    if (testKey === 'tinetti') {
+      if (score >= 25) return "Bajo riesgo de caídas";
+      if (score >= 19) return "Riesgo moderado de caídas";
+      return "Alto riesgo de caídas";
+    }
+    if (testKey === 'mna') {
+      if (score >= 24) return "Estado nutricional normal";
+      if (score >= 17) return "Riesgo de malnutrición";
+      return "Malnutrición";
+    }
+    if (testKey === 'fried') {
+      if (score === 0) return "Robusto – sin fragilidad";
+      if (score <= 2) return "Pre-frágil";
+      return "Frágil";
+    }
+    if (testKey === 'gijon') {
+      if (score < 10) return "Buena situación social";
+      if (score <= 14) return "Riesgo social";
+      return "Problema social severo";
+    }
+    if (testKey === 'braden') {
+      if (score >= 17) return "Sin riesgo de UPP";
+      if (score >= 15) return "Riesgo bajo de UPP";
+      if (score >= 13) return "Riesgo moderado de UPP";
+      return "Alto riesgo de UPP";
+    }
+    if (testKey === 'mmse') {
+      if (score >= 27) return "Normal";
+      if (score >= 24) return "Sospecha patológica";
+      if (score >= 12) return "Deterioro cognitivo";
+      return "Demencia";
+    }
+    if (testKey === 'charlson') {
+      if (score === 0) return "Sin comorbilidad";
+      if (score <= 2) return "Comorbilidad baja";
+      if (score <= 4) return "Comorbilidad alta";
+      return "Comorbilidad muy alta";
+    }
+    if (testKey === 'zarit') {
+      if (score < 21) return "No sobrecarga";
+      if (score <= 40) return "Sobrecarga leve";
+      if (score <= 60) return "Sobrecarga moderada";
+      return "Sobrecarga severa";
     }
     return "Pendiente de interpretación clínica";
   };
@@ -99,30 +156,38 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
     return (
       <div className="animate-fade-in">
         <FormHeader title={activeTest.name} subtitle={`${activeTest.cat} — ${activeTest.desc}`} onBack={() => setStep('menu')} />
+        {activeTest.instructions && (
+          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-6 text-xs text-foreground leading-relaxed">
+            <p className="font-bold text-primary mb-1 uppercase tracking-widest text-[10px]">Instrucciones</p>
+            {activeTest.instructions}
+          </div>
+        )}
         <div className="space-y-4 max-w-2xl">
           {activeTest.questions.map((q, idx) => (
-            <div key={q.id} className="bg-card rounded-4xl p-5 shadow-sm border border-border">
+            <div key={q.id} className="bg-card rounded-2xl p-5 shadow-sm border border-border">
               <div className="flex items-center gap-3 mb-3">
-                <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center">
+                <span className="w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center shrink-0">
                   {idx + 1}
                 </span>
                 <span className="text-sm font-bold text-foreground">{q.text}</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {q.opts.map(opt => (
-                  <button
-                    key={opt.l}
-                    onClick={() => handleAnswer(q.id, opt.v)}
-                    className={`p-3 rounded-xl text-xs font-bold text-left transition-all flex justify-between items-center min-h-[48px] ${
-                      answers[q.id] === opt.v
-                        ? 'bg-primary text-primary-foreground shadow-lg'
-                        : 'bg-muted text-muted-foreground hover:bg-accent border border-transparent'
-                    }`}
-                  >
-                    {opt.l}
-                    <span className="opacity-70">+{opt.v}</span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {q.opts.map(opt => {
+                  const isSelected = answers[q.id] !== undefined && answers[q.id] === opt.v;
+                  return (
+                    <button
+                      key={`${opt.l}-${opt.v}`}
+                      onClick={() => handleAnswer(q.id, opt.v)}
+                      className={`p-3 rounded-xl text-xs font-bold text-left transition-all min-h-[48px] ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground shadow-lg'
+                          : 'bg-muted text-muted-foreground hover:bg-accent border border-transparent'
+                      }`}
+                    >
+                      {opt.l}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
