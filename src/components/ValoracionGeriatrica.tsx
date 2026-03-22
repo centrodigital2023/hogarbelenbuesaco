@@ -283,8 +283,8 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
         </div>
 
         <div className="flex justify-center gap-8 mt-8">
-          <SignaturePad label="Evaluador" onSave={setSigEval} />
-          <SignaturePad label="Supervisor" onSave={setSigSuper} />
+          <SignaturePad label="Evaluador" onChange={(v) => setSigEval(v)} />
+          <SignaturePad label="Supervisor" onChange={(v) => setSigSuper(v)} />
         </div>
 
         <div className="flex justify-center gap-4 mt-8">
