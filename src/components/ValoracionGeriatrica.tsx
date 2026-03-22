@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Activity, Brain, Heart, Utensils, AlertTriangle,
-  Users, ShieldCheck, Briefcase, ChevronRight
+  Users, ShieldCheck, Briefcase, ChevronRight, User, History, Save
 } from "lucide-react";
 import { TESTS_GERIATRICOS } from "@/data/tests-geriatricos";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import FormHeader from "./FormHeader";
-import ActionButtons from "./ActionButtons";
 import SignaturePad from "./SignaturePad";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -30,16 +32,77 @@ const colorMap: Record<string, string> = {
   'cat-skin': 'text-cat-skin bg-cat-skin/10',
 };
 
+interface Resident {
+  id: string;
+  full_name: string;
+  document_id: string | null;
+  status: string;
+}
+
+interface AssessmentHistory {
+  id: string;
+  test_key: string;
+  test_name: string;
+  score: number;
+  max_score: number;
+  interpretation: string | null;
+  assessment_date: string;
+  created_at: string;
+}
+
 interface ValoracionGeriatricaProps {
   onBack: () => void;
 }
 
 const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
-  const [step, setStep] = useState<'menu' | 'assessment' | 'summary'>('menu');
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [step, setStep] = useState<'select-resident' | 'menu' | 'assessment' | 'summary'>('select-resident');
   const [testKey, setTestKey] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [sigEval, setSigEval] = useState<string | null>(null);
+  const [sigSuper, setSigSuper] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Resident selection
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
+  const [residentSearch, setResidentSearch] = useState("");
+  const [loadingResidents, setLoadingResidents] = useState(true);
+
+  // History
+  const [history, setHistory] = useState<AssessmentHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const activeTest = useMemo(() => testKey ? TESTS_GERIATRICOS[testKey] : null, [testKey]);
+
+  useEffect(() => {
+    const fetchResidents = async () => {
+      setLoadingResidents(true);
+      const { data } = await supabase.from('residents')
+        .select('id, full_name, document_id, status')
+        .in('status', ['prueba', 'permanente'])
+        .order('full_name');
+      if (data) setResidents(data);
+      setLoadingResidents(false);
+    };
+    fetchResidents();
+  }, []);
+
+  const fetchHistory = async (residentId: string) => {
+    const { data } = await supabase.from('geriatric_assessments')
+      .select('id, test_key, test_name, score, max_score, interpretation, assessment_date, created_at')
+      .eq('resident_id', residentId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (data) setHistory(data);
+  };
+
+  const handleSelectResident = (r: Resident) => {
+    setSelectedResident(r);
+    fetchHistory(r.id);
+    setStep('menu');
+  };
 
   const handleAnswer = (qId: string, value: number) => {
     setAnswers(prev => ({ ...prev, [qId]: value }));
@@ -119,11 +182,94 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
     return "Pendiente de interpretación clínica";
   };
 
+  const handleSave = async () => {
+    if (!selectedResident || !activeTest || !testKey || !user) return;
+    setSaving(true);
+    const score = getScore();
+    const interpretation = getInterpretation(score);
+
+    const { error } = await supabase.from('geriatric_assessments').insert({
+      resident_id: selectedResident.id,
+      created_by: user.id,
+      test_key: testKey,
+      test_name: activeTest.name,
+      score,
+      max_score: activeTest.max,
+      interpretation,
+      answers: answers as any,
+      signature_evaluator: sigEval,
+      signature_supervisor: sigSuper,
+    });
+
+    if (error) {
+      toast({ title: "Error al guardar", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "✅ Valoración guardada", description: `${activeTest.name} - ${selectedResident.full_name}` });
+      fetchHistory(selectedResident.id);
+    }
+    setSaving(false);
+  };
+
+  const filteredResidents = residents.filter(r =>
+    r.full_name.toLowerCase().includes(residentSearch.toLowerCase()) ||
+    (r.document_id || '').toLowerCase().includes(residentSearch.toLowerCase())
+  );
+
+  // Step: Select Resident
+  if (step === 'select-resident') {
+    return (
+      <div className="animate-fade-in">
+        <FormHeader title="2. Valoración Geriátrica" subtitle="Seleccione un residente para valorar" onBack={onBack} />
+        <div className="relative max-w-md mb-6">
+          <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text" placeholder="Buscar residente por nombre o documento..."
+            value={residentSearch} onChange={e => setResidentSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background text-sm"
+          />
+        </div>
+        {loadingResidents ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredResidents.map(r => (
+              <button key={r.id} onClick={() => handleSelectResident(r)}
+                className="bg-card border-2 border-border rounded-2xl p-5 text-left hover:border-primary transition-all group min-h-[48px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User size={18} className="text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">{r.full_name}</p>
+                    <p className="text-[10px] text-muted-foreground">{r.document_id || 'Sin documento'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-3 text-xs font-black text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                  VALORAR <ChevronRight size={14} />
+                </div>
+              </button>
+            ))}
+            {filteredResidents.length === 0 && (
+              <p className="text-muted-foreground col-span-full text-center py-8">No se encontraron residentes activos.</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Step: Summary
   if (step === 'summary' && activeTest) {
     const score = getScore();
     return (
       <div className="animate-fade-in">
-        <FormHeader title={`Resultado: ${activeTest.name}`} subtitle="Resumen de la evaluación" onBack={() => setStep('menu')} />
+        <FormHeader
+          title={`Resultado: ${activeTest.name}`}
+          subtitle={`Residente: ${selectedResident?.full_name}`}
+          onBack={() => setStep('menu')}
+        />
         <div className="bg-card rounded-4xl p-8 shadow-sm border border-border text-center max-w-md mx-auto">
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">Puntaje Final</p>
           <div className="text-6xl font-black text-primary mb-1">
@@ -135,11 +281,21 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
             <p className="text-lg font-black text-foreground">{getInterpretation(score)}</p>
           </div>
         </div>
+
         <div className="flex justify-center gap-8 mt-8">
-          <SignaturePad label="Evaluador" />
-          <SignaturePad label="Supervisor" />
+          <SignaturePad label="Evaluador" onSave={setSigEval} />
+          <SignaturePad label="Supervisor" onSave={setSigSuper} />
         </div>
-        <div className="flex justify-center mt-8">
+
+        <div className="flex justify-center gap-4 mt-8">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-50 min-h-[48px]"
+          >
+            <Save size={16} />
+            {saving ? "Guardando..." : "Guardar Valoración"}
+          </button>
           <button
             onClick={() => setStep('menu')}
             className="bg-secondary text-secondary-foreground px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-colors min-h-[48px]"
@@ -151,11 +307,16 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
     );
   }
 
+  // Step: Assessment
   if (step === 'assessment' && activeTest) {
     const isComplete = Object.keys(answers).length === activeTest.questions.length;
     return (
       <div className="animate-fade-in">
-        <FormHeader title={activeTest.name} subtitle={`${activeTest.cat} — ${activeTest.desc}`} onBack={() => setStep('menu')} />
+        <FormHeader
+          title={activeTest.name}
+          subtitle={`${selectedResident?.full_name} — ${activeTest.cat}`}
+          onBack={() => setStep('menu')}
+        />
         {activeTest.instructions && (
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mb-6 text-xs text-foreground leading-relaxed">
             <p className="font-bold text-primary mb-1 uppercase tracking-widest text-[10px]">Instrucciones</p>
@@ -192,24 +353,95 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
             </div>
           ))}
         </div>
-        <ActionButtons onFinish={() => setStep('summary')} disabled={!isComplete} />
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={() => setStep('summary')}
+            disabled={!isComplete}
+            className="bg-primary text-primary-foreground px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-50 min-h-[48px]"
+          >
+            Ver Resultado
+          </button>
+        </div>
       </div>
     );
   }
 
-  // Menu
+  // Step: Menu (test selection) with history
   return (
     <div className="animate-fade-in">
-      <FormHeader title="2. Valoración Geriátrica" subtitle="Seleccione una escala para iniciar" onBack={onBack} />
+      <FormHeader
+        title="2. Valoración Geriátrica"
+        subtitle={`Residente: ${selectedResident?.full_name}`}
+        onBack={() => { setSelectedResident(null); setStep('select-resident'); }}
+      />
+
+      {/* Resident info bar */}
+      <div className="bg-card border border-border rounded-2xl p-4 mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <User size={18} className="text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-foreground">{selectedResident?.full_name}</p>
+            <p className="text-[10px] text-muted-foreground">{selectedResident?.document_id || 'Sin documento'}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-1.5 bg-muted text-muted-foreground px-4 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-accent min-h-[36px]"
+          >
+            <History size={14} />
+            Historial ({history.length})
+          </button>
+          <button
+            onClick={() => { setSelectedResident(null); setStep('select-resident'); }}
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-xl text-[10px] font-bold uppercase hover:bg-primary hover:text-primary-foreground transition-colors min-h-[36px]"
+          >
+            Cambiar Residente
+          </button>
+        </div>
+      </div>
+
+      {/* History panel */}
+      {showHistory && history.length > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-5 mb-6">
+          <h3 className="text-xs font-black text-foreground mb-3 uppercase tracking-widest flex items-center gap-2">
+            <History size={14} className="text-primary" /> Historial de Valoraciones
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {history.map(h => (
+              <div key={h.id} className="flex items-center justify-between bg-muted rounded-xl px-4 py-3">
+                <div>
+                  <p className="text-xs font-bold text-foreground">{h.test_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{h.assessment_date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-primary">{h.score}/{h.max_score}</p>
+                  <p className="text-[10px] text-muted-foreground">{h.interpretation}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {showHistory && history.length === 0 && (
+        <div className="bg-muted rounded-2xl p-6 mb-6 text-center">
+          <p className="text-xs text-muted-foreground">No hay valoraciones previas para este residente.</p>
+        </div>
+      )}
+
+      {/* Test grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {Object.keys(TESTS_GERIATRICOS).map(key => {
           const test = TESTS_GERIATRICOS[key];
           const classes = colorMap[test.colorClass] || 'text-muted-foreground bg-muted';
           const [textClass, bgClass] = classes.split(' ');
+          const lastResult = history.find(h => h.test_key === key);
           return (
             <button
               key={key}
-              onClick={() => { setTestKey(key); setAnswers({}); setStep('assessment'); }}
+              onClick={() => { setTestKey(key); setAnswers({}); setSigEval(null); setSigSuper(null); setStep('assessment'); }}
               className="bg-card p-5 rounded-4xl border-2 border-border hover:border-primary transition-all text-left shadow-sm group active:scale-[0.97] min-h-[48px]"
             >
               <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center mb-3 ${textClass}`}>
@@ -217,9 +449,13 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
               </div>
               <p className="text-sm font-bold text-foreground">{test.name}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{test.cat}</p>
+              {lastResult && (
+                <p className="text-[10px] text-primary font-bold mt-1">
+                  Último: {lastResult.score}/{lastResult.max_score} ({lastResult.assessment_date})
+                </p>
+              )}
               <div className="flex items-center gap-1 mt-3 text-xs font-black text-primary uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                INICIAR
-                <ChevronRight size={14} />
+                INICIAR <ChevronRight size={14} />
               </div>
             </button>
           );
