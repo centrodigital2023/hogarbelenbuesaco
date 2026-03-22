@@ -10,29 +10,58 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { residentId, dateFrom, dateTo, shift, isConsolidated } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // ===== AUTH CHECK: Verify caller is authenticated staff =====
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "No autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Gather data
-    let logsQuery = supabase.from("daily_logs").select("*, residents(full_name)")
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await userClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Token inválido" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user is staff (has at least one role)
+    const serviceClient = createClient(supabaseUrl, supabaseKey);
+    const { data: userRoles } = await serviceClient.from("user_roles").select("role").eq("user_id", user.id);
+    if (!userRoles || userRoles.length === 0) {
+      return new Response(JSON.stringify({ error: "Acceso restringido al personal" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // ===== END AUTH CHECK =====
+
+    const { residentId, dateFrom, dateTo, shift, isConsolidated } = await req.json();
+
+    // Gather data using service client
+    let logsQuery = serviceClient.from("daily_logs").select("*, residents(full_name)")
       .gte("log_date", dateFrom).lte("log_date", dateTo);
     if (!isConsolidated && residentId) logsQuery = logsQuery.eq("resident_id", residentId);
     if (shift && shift !== "todos") logsQuery = logsQuery.eq("shift", shift);
     const { data: logs } = await logsQuery.order("log_date");
 
-    // Get vital signs if available
-    let vitalsQuery = supabase.from("vital_signs").select("*, residents(full_name)")
+    let vitalsQuery = serviceClient.from("vital_signs").select("*, residents(full_name)")
       .gte("record_date", dateFrom).lte("record_date", dateTo);
     if (!isConsolidated && residentId) vitalsQuery = vitalsQuery.eq("resident_id", residentId);
     const { data: vitals } = await vitalsQuery;
 
-    // Get incidents
-    let incQuery = supabase.from("incidents").select("*, residents(full_name)")
+    let incQuery = serviceClient.from("incidents").select("*, residents(full_name)")
       .gte("incident_datetime", `${dateFrom}T00:00:00`).lte("incident_datetime", `${dateTo}T23:59:59`);
     if (!isConsolidated && residentId) incQuery = incQuery.eq("resident_id", residentId);
     const { data: incidents } = await incQuery;
@@ -41,12 +70,11 @@ serve(async (req) => {
       return new Response(JSON.stringify({ note: null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Get previous notes to avoid repetition
-    let prevQuery = supabase.from("nursing_notes").select("note").order("created_at", { ascending: false }).limit(3);
+    let prevQuery = serviceClient.from("nursing_notes").select("note").order("created_at", { ascending: false }).limit(3);
     if (!isConsolidated && residentId) prevQuery = prevQuery.eq("resident_id", residentId);
     const { data: prevNotes } = await prevQuery;
 
-    const logsText = (logs || []).map((l: any) => 
+    const logsText = (logs || []).map((l: any) =>
       `${l.log_date} ${l.shift}: ${l.residents?.full_name || 'Residente'} - Nutrición:${l.nutrition_pct}%, Hidratación:${l.hydration_glasses} vasos, Ánimo:${l.mood}, Eliminación:${l.elimination}, Obs:${l.observations || 'N/A'}`
     ).join("\n");
 
