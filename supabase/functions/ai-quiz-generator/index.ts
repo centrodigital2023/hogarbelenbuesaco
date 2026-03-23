@@ -117,7 +117,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ quiz }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("ai-quiz-generator error:", e);
+    return new Response(JSON.stringify({ error: "Error interno del servidor. Intente de nuevo." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

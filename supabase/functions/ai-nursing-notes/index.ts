@@ -147,7 +147,7 @@ ${isConsolidated ? "NOTA: Esta es una nota consolidada de TODOS los residentes d
 
     return new Response(JSON.stringify({ note }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("ai-nursing-notes error:", e);
+    return new Response(JSON.stringify({ error: "Error interno del servidor. Intente de nuevo." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
