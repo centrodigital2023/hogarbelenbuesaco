@@ -47,7 +47,23 @@ serve(async (req) => {
     }
     // ===== END AUTH CHECK =====
 
-    const { residentId, dateFrom, dateTo, shift, isConsolidated } = await req.json();
+    const body = await req.json();
+    const { residentId, dateFrom, dateTo, shift, isConsolidated } = body;
+
+    // ===== INPUT VALIDATION =====
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateFrom || !dateTo || !dateRegex.test(dateFrom) || !dateRegex.test(dateTo)) {
+      return new Response(JSON.stringify({ error: "Fechas inválidas. Use formato YYYY-MM-DD." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const validShifts = ["mañana", "tarde", "noche", "todos"];
+    if (shift && !validShifts.includes(shift)) {
+      return new Response(JSON.stringify({ error: "Turno inválido." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (residentId && !uuidRegex.test(residentId)) {
+      return new Response(JSON.stringify({ error: "ID de residente inválido." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // ===== END INPUT VALIDATION =====
 
     // Gather data using service client
     let logsQuery = serviceClient.from("daily_logs").select("*, residents(full_name)")
@@ -131,7 +147,7 @@ ${isConsolidated ? "NOTA: Esta es una nota consolidada de TODOS los residentes d
 
     return new Response(JSON.stringify({ note }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("ai-nursing-notes error:", e);
+    return new Response(JSON.stringify({ error: "Error interno del servidor. Intente de nuevo." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

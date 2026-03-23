@@ -44,8 +44,17 @@ serve(async (req) => {
     }
     // ===== END AUTH CHECK =====
 
-    const { content, courseId } = await req.json();
+    const body = await req.json();
+    const { content, courseId } = body;
 
+    // ===== INPUT VALIDATION =====
+    if (!content || typeof content !== "string" || content.trim().length === 0) {
+      return new Response(JSON.stringify({ error: "El contenido es requerido." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (content.length > 20000) {
+      return new Response(JSON.stringify({ error: "El contenido excede el límite de 20.000 caracteres." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // ===== END INPUT VALIDATION =====
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -108,7 +117,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ quiz }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.error("ai-quiz-generator error:", e);
+    return new Response(JSON.stringify({ error: "Error interno del servidor. Intente de nuevo." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
