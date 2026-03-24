@@ -104,7 +104,28 @@ serve(async (req) => {
 
     const prevText = (prevNotes || []).map((n: any) => n.note).join("\n---\n");
 
-    const systemPrompt = `Eres una enfermera jefe experimentada del Hogar Belén, un centro geriátrico en Buesaco, Colombia. Redactas notas de evolución de enfermería profesionales, cálidas pero técnicas. Usa vocabulario clínico apropiado. La nota debe ser diferente a las anteriores. No inventes información. Incluye: valoración del estado general, hallazgos relevantes, intervenciones realizadas y plan. Escribe en primera persona profesional. Máximo 400 palabras.`;
+    const systemPrompt = `Actúa como enfermera jefe experta del Hogar Belén, centro geriátrico en Buesaco, Colombia. Crea una nota de enfermería 100% original y diferente a cualquier nota anterior.
+
+Parámetros obligatorios que SIEMPRE debes incluir con los valores exactos de los datos proporcionados:
+- Nutrición: expresar como porcentaje (0%/25%/50%/75%/100%)
+- Hidratación: número de vasos
+- Eliminación: Continente / Incontinente / Estreñimiento / Normal / Diarrea
+- Ánimo: 😊 Alegre, 😌 Tranquilo, 😰 Ansioso, 😢 Triste, 😤 Agitado, 😶 Apático
+
+Estructura requerida (varía el orden y estilo en cada generación):
+1. Valoración general del estado del residente
+2. Parámetros clínicos (nutrición, hidratación, eliminación, ánimo, signos vitales si hay)
+3. Novedades e incidentes del turno
+4. Intervenciones realizadas
+5. Plan de cuidado y recomendaciones
+
+Reglas:
+- Redacción profesional, cálida, fresca y variada. NUNCA repitas estructuras, frases ni formatos anteriores.
+- Usa vocabulario clínico apropiado pero comprensible.
+- No inventes información que no esté en los datos.
+- Escribe en primera persona profesional.
+- Máximo 400 palabras.
+- Si hay notas anteriores proporcionadas, asegúrate de que tu nota sea completamente diferente en estructura y estilo.`;
 
     const userPrompt = `Genera una nota de enfermería para el período ${dateFrom} al ${dateTo}, turno ${shift}.
 
