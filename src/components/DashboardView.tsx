@@ -3,7 +3,7 @@ import {
   Users, ClipboardList, Utensils, Heart, Activity,
   Stethoscope, ShieldCheck, AlertTriangle, LogOut,
   Briefcase, TrendingUp, Settings, DollarSign,
-  BookOpen, Share2, UserPlus, FileText
+  BookOpen, Share2, UserPlus, FileText, MessageSquare
 } from "lucide-react";
 
 type Module = Parameters<ReturnType<typeof usePermissions>['canAccess']>[0];
@@ -36,6 +36,7 @@ const SECTIONS: Section[] = [
       { id: '8',         perm: null,            type: 'Riesgo',     title: "8. Seguridad",      subtitle: "Incidentes", icon: AlertTriangle },
       { id: '9',         perm: 'egreso',        type: 'Operativo',  title: "9. Egreso",         subtitle: "Traslados",  icon: LogOut },
       { id: 'residentes',perm: 'residentes',    type: 'Directorio', title: "Residentes",        subtitle: "Fichas",     icon: Users },
+      { id: 'familia',   perm: 'ingreso',       type: 'Familia',    title: "Familia",           subtitle: "Comunicaciones", icon: MessageSquare },
     ],
   },
   {

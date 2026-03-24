@@ -50,10 +50,16 @@ import SanitationRecord from "@/components/forms/SanitationRecord";
 import EmergencyPlan from "@/components/forms/EmergencyPlan";
 import ManagerialDashboard from "@/components/forms/ManagerialDashboard";
 import PaymentVoucher from "@/components/forms/PaymentVoucher";
+import FamilyCommunication from "@/components/forms/FamilyCommunication";
+import WoundCare from "@/components/forms/WoundCare";
+import HospitalizationRecord from "@/components/forms/HospitalizationRecord";
+import FallPrevention from "@/components/forms/FallPrevention";
+import DischargeSummary from "@/components/forms/DischargeSummary";
+import GroupActivities from "@/components/forms/GroupActivities";
 import {
   ClipboardList, Stethoscope, Utensils, Heart, Activity,
   ShieldCheck, AlertTriangle, LogOut, Briefcase, TrendingUp, Settings,
-  BookOpen, Share2, DollarSign, FileText
+  BookOpen, Share2, DollarSign, FileText, Users
 } from "lucide-react";
 
 const MODULE_INFO: Record<string, { title: string; subtitle: string; icon: any; forms: { id: string; label: string }[] }> = {
@@ -67,23 +73,29 @@ const MODULE_INFO: Record<string, { title: string; subtitle: string; icon: any; 
     { id: 'THERAPY-SESSION', label: '📅 Sesión Terapia' },
     { id: 'HB-F10', label: 'HB-F10: Atención Psicosocial' },
     { id: 'HB-F11', label: 'HB-F11: Acomp. Espiritual' },
+    { id: 'HB-F29', label: '🎭 HB-F29: Actividades Grupales' },
   ]},
   '5': { title: '5. Salud Diaria', subtitle: 'Enfermería', icon: Activity, forms: [
     { id: 'HB-F4', label: 'HB-F4: Bitácora' }, { id: 'HB-F14', label: 'HB-F14: Medicamentos' },
     { id: 'HB-F15', label: 'HB-F15: Administración Med.' }, { id: 'HB-F16', label: 'HB-F16: Signos Vitales' },
+    { id: 'HB-F18', label: '🩹 HB-F18: Piel y Heridas' },
     { id: 'NURSING-AI', label: '🤖 Notas Enfermería IA' },
   ]},
   '6': { title: '6. Sistema Salud', subtitle: 'Urgencias y citas', icon: Stethoscope, forms: [
     { id: 'HB-F17', label: 'HB-F17: Citas Médicas' },
+    { id: 'HB-F19', label: '🏥 HB-F19: Hospitalización/Referencia' },
   ]},
   '7': { title: '7. Higiene', subtitle: 'Prevención', icon: ShieldCheck, forms: [
     { id: 'HB-F8a1', label: 'HB-F8a1: Desinfección General' },
+    { id: 'HYGIENE-KIT', label: '🧴 Kit de Higiene' },
   ]},
   '8': { title: '8. Seguridad', subtitle: 'Incidentes y riesgos', icon: AlertTriangle, forms: [
     { id: 'HB-F20', label: 'HB-F20: Incidentes/Caídas' },
+    { id: 'HB-F21', label: '🛡️ HB-F21: Prevención de Caídas' },
   ]},
   '9': { title: '9. Egreso', subtitle: 'Traslados', icon: LogOut, forms: [
     { id: 'HB-F3', label: 'HB-F3: Inventario Egreso' },
+    { id: 'HB-F28', label: '📋 HB-F28: Resumen de Egreso' },
   ]},
   '10': { title: '10. Personal', subtitle: 'Talento humano', icon: Briefcase, forms: [
     { id: 'HB-F24', label: 'HB-F24: Capacitaciones' }, { id: 'HB-F25', label: 'HB-F25: Evaluación Desempeño' },
@@ -104,6 +116,9 @@ const MODULE_INFO: Record<string, { title: string; subtitle: string; icon: any; 
     { id: 'HB-G04', label: 'HB-G04: Saneamiento' },
     { id: 'HB-G05', label: 'HB-G05: Plan Emergencias' },
     { id: 'HB-G06', label: 'HB-G06: Tablero Gerencial' },
+  ]},
+  'familia': { title: 'Familia y Comunicaciones', subtitle: 'Visitas y contacto familiar', icon: Users, forms: [
+    { id: 'HB-F27', label: '💬 HB-F27: Comunicaciones Familia' },
   ]},
 };
 
@@ -147,6 +162,12 @@ const FORM_COMPONENTS: Record<string, React.FC<{ onBack: () => void }>> = {
   'HB-G04': SanitationRecord,
   'HB-G05': EmergencyPlan,
   'HB-G06': ManagerialDashboard,
+  'HB-F27': FamilyCommunication,
+  'HB-F18': WoundCare,
+  'HB-F19': HospitalizationRecord,
+  'HB-F21': FallPrevention,
+  'HB-F28': DischargeSummary,
+  'HB-F29': GroupActivities,
 };
 
 const Index = () => {
@@ -189,6 +210,28 @@ const Index = () => {
     if (view === 'finanzas') return <FinanceModule onBack={() => setView('dashboard')} />;
     if (view === 'blog') return <BlogModule onBack={() => setView('dashboard')} />;
     if (view === 'redes') return <SocialMediaModule onBack={() => setView('dashboard')} />;
+    if (view === 'familia') {
+      const info = MODULE_INFO['familia'];
+      return (
+        <div className="animate-fade-in">
+          <FormHeader title={info.title} subtitle={info.subtitle} onBack={() => setView('dashboard')} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {info.forms.map(f => {
+              const Icon = info.icon;
+              return (
+                <button key={f.id} onClick={() => setForm(f.id)}
+                  className="bg-card border-2 border-border rounded-2xl p-5 text-left hover:border-primary transition-all group min-h-[48px]">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+                    <Icon size={20} className="text-primary" />
+                  </div>
+                  <p className="text-sm font-bold text-foreground">{f.label}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
 
     const info = MODULE_INFO[view];
     if (info && info.forms.length > 0) {

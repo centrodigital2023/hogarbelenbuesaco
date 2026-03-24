@@ -35,6 +35,7 @@ const modules = [
   { id: 'redes', title: "Redes Sociales", subtitle: "Publicaciones", icon: Share2, roles: ['super_admin', 'administrativo'] },
   { id: 'usuarios', title: "Usuarios", subtitle: "Gestión", icon: UserPlus, roles: ['super_admin'] },
   { id: 'residentes', title: "Residentes", subtitle: "Directorio", icon: Users, roles: ['super_admin', 'coordinador'] },
+  { id: 'familia', title: "Familia", subtitle: "Comunicaciones", icon: Share2, roles: ['super_admin', 'coordinador', 'enfermera', 'cuidadora'] },
 ];
 
 const AppLayout = ({ children, activeModule, onModuleChange }: AppLayoutProps) => {
