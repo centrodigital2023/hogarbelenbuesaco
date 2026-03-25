@@ -46,18 +46,41 @@ const DailyLog = ({ onBack }: Props) => {
   };
 
   const handleGenerateAI = async () => {
+    if (!user || Object.keys(entries).length === 0) return;
     setGeneratingAI(true);
-    // Build summary from entries
-    const summary = Object.entries(entries).map(([rid, e]) => {
-      const name = residents.find((r) => r.id === rid)?.full_name || 'Residente';
-      return `${name}: Nutrición ${e.nutrition_pct}%, Hidratación ${e.hydration_glasses} vasos, Eliminación: ${e.elimination}, Ánimo: ${e.mood}. ${e.observations}`;
-    }).join('\n');
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-nursing-notes', {
+        body: {
+          residentId: null,
+          dateFrom: logDate,
+          dateTo: logDate,
+          shift,
+          isConsolidated: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.note) {
+        setAiNote(data.note);
+      } else {
+        // Fallback: generate from current form entries
+        const summary = Object.entries(entries).map(([rid, e]) => {
+          const name = residents.find((r) => r.id === rid)?.full_name || 'Residente';
+          return `${name}: Nutrición ${e.nutrition_pct}%, Hidratación ${e.hydration_glasses} vasos, Eliminación: ${e.elimination}, Ánimo: ${e.mood}. ${e.observations}`;
+        }).join('\n');
 
-    // Simulate AI note generation (in production would call edge function with Lovable AI)
-    const note = `NOTA DE ENFERMERÍA — Turno: ${shift}, Fecha: ${logDate}\n\nDurante el turno se registraron ${Object.keys(entries).length} residentes. ` +
-    `Se observó que la mayoría mantiene una ingesta nutricional adecuada. ` +
-    `Se recomienda vigilancia continua y seguimiento según protocolo.`;
-    setAiNote(note);
+        const { data: fallback, error: fbErr } = await supabase.functions.invoke('ai-nursing-notes-from-text', {
+          body: { summary, shift, logDate },
+        });
+        // If no dedicated function, use inline data
+        if (fbErr || !fallback?.note) {
+          toast({ title: "Sin datos previos", description: "Guarde primero los registros y luego genere la nota con IA.", variant: "destructive" });
+        } else {
+          setAiNote(fallback.note);
+        }
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Error generando nota con IA", variant: "destructive" });
+    }
     setGeneratingAI(false);
   };
 
