@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import FormHeader from "@/components/FormHeader";
 import ActionButtons from "@/components/ActionButtons";
-import { Sparkles, History } from "lucide-react";
+import { Sparkles, History, Loader2 } from "lucide-react";
 
 interface Props {onBack: () => void;}
 interface Resident {id: string;full_name: string;}
