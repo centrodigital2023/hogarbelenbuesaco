@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import FormHeader from "@/components/FormHeader";
 import ActionButtons from "@/components/ActionButtons";
-import { Sparkles, History } from "lucide-react";
+import { Sparkles, History, Loader2 } from "lucide-react";
 
 interface Props {onBack: () => void;}
 interface Resident {id: string;full_name: string;}
@@ -46,18 +46,41 @@ const DailyLog = ({ onBack }: Props) => {
   };
 
   const handleGenerateAI = async () => {
+    if (!user || Object.keys(entries).length === 0) return;
     setGeneratingAI(true);
-    // Build summary from entries
-    const summary = Object.entries(entries).map(([rid, e]) => {
-      const name = residents.find((r) => r.id === rid)?.full_name || 'Residente';
-      return `${name}: Nutrición ${e.nutrition_pct}%, Hidratación ${e.hydration_glasses} vasos, Eliminación: ${e.elimination}, Ánimo: ${e.mood}. ${e.observations}`;
-    }).join('\n');
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-nursing-notes', {
+        body: {
+          residentId: null,
+          dateFrom: logDate,
+          dateTo: logDate,
+          shift,
+          isConsolidated: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.note) {
+        setAiNote(data.note);
+      } else {
+        // Fallback: generate from current form entries
+        const summary = Object.entries(entries).map(([rid, e]) => {
+          const name = residents.find((r) => r.id === rid)?.full_name || 'Residente';
+          return `${name}: Nutrición ${e.nutrition_pct}%, Hidratación ${e.hydration_glasses} vasos, Eliminación: ${e.elimination}, Ánimo: ${e.mood}. ${e.observations}`;
+        }).join('\n');
 
-    // Simulate AI note generation (in production would call edge function with Lovable AI)
-    const note = `NOTA DE ENFERMERÍA — Turno: ${shift}, Fecha: ${logDate}\n\nDurante el turno se registraron ${Object.keys(entries).length} residentes. ` +
-    `Se observó que la mayoría mantiene una ingesta nutricional adecuada. ` +
-    `Se recomienda vigilancia continua y seguimiento según protocolo.`;
-    setAiNote(note);
+        const { data: fallback, error: fbErr } = await supabase.functions.invoke('ai-nursing-notes-from-text', {
+          body: { summary, shift, logDate },
+        });
+        // If no dedicated function, use inline data
+        if (fbErr || !fallback?.note) {
+          toast({ title: "Sin datos previos", description: "Guarde primero los registros y luego genere la nota con IA.", variant: "destructive" });
+        } else {
+          setAiNote(fallback.note);
+        }
+      }
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message || "Error generando nota con IA", variant: "destructive" });
+    }
     setGeneratingAI(false);
   };
 
@@ -176,8 +199,8 @@ const DailyLog = ({ onBack }: Props) => {
           </h3>
           <button onClick={handleGenerateAI} disabled={generatingAI || Object.keys(entries).length === 0}
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50 min-h-[36px]">
-            <Sparkles size={12} />
-            {generatingAI ? 'Generando...' : 'Generar Nota'}
+            {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {generatingAI ? 'Generando...' : 'Generar Nota con IA'}
           </button>
         </div>
         <textarea value={aiNote} onChange={(e) => setAiNote(e.target.value)} rows={5}
