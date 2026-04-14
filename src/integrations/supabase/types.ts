@@ -2693,10 +2693,12 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
-      }
+      enqueue_email:
+        | {
+            Args: { delay_seconds?: number; msg: Json; queue_name: string }
+            Returns: number
+          }
+        | { Args: { payload: Json; queue_name: string }; Returns: number }
       get_safe_quiz: { Args: { p_course_id: string }; Returns: Json }
       has_role: {
         Args: {
@@ -2706,15 +2708,20 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
+      move_to_dlq:
+        | {
+            Args: {
+              dlq_name: string
+              message_id: number
+              payload: Json
+              source_queue: string
+            }
+            Returns: number
+          }
+        | {
+            Args: { message_id: number; source_queue: string }
+            Returns: boolean
+          }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
