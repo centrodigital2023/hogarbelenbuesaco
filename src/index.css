@@ -34,7 +34,14 @@
     --input: 214 20% 92%;
     --ring: 0 79% 42%;
 
-    --radius: 1.5rem;
+    --radius: 1rem;
+
+    /* Premium surface tokens */
+    --surface-elevated: 0 0% 100%;
+    --surface-overlay: 215 28% 17% / 0.04;
+    --shadow-soft: 0 4px 24px -4px hsl(215 28% 17% / 0.08);
+    --shadow-card: 0 1px 3px 0 hsl(215 28% 17% / 0.04), 0 1px 2px -1px hsl(215 28% 17% / 0.04);
+    --shadow-elevated: 0 10px 40px -8px hsl(215 28% 17% / 0.12);
 
     /* Category colors */
     --cat-functional: 217 91% 60%;
@@ -76,6 +83,12 @@
     --border: 215 20% 20%;
     --input: 215 20% 20%;
     --ring: 0 79% 50%;
+
+    --surface-elevated: 215 28% 15%;
+    --surface-overlay: 210 40% 98% / 0.04;
+    --shadow-soft: 0 4px 24px -4px hsl(0 0% 0% / 0.3);
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.2), 0 1px 2px -1px hsl(0 0% 0% / 0.15);
+    --shadow-elevated: 0 10px 40px -8px hsl(0 0% 0% / 0.4);
   }
 }
 
@@ -85,24 +98,81 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Better touch targets for mobile */
+  button, a, input, select, textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
   }
 }
 
 @layer utilities {
   .animate-fade-in {
-    animation: fadeIn 0.2s ease-out forwards;
+    animation: fadeIn 0.25s ease-out forwards;
   }
 
   @keyframes fadeIn {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out forwards;
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Premium glass effect */
+  .glass {
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+  }
+
+  /* Safe area padding for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 }

@@ -50,47 +50,51 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Hero image */}
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Hero */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <img src={loginHero} alt="Cuidado geriátrico" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-          <h2 className="text-4xl font-black leading-tight mb-3">Cuidamos con<br />amor y dignidad</h2>
-          <p className="text-sm text-white/80 max-w-md">
+        <img
+          src={loginHero}
+          alt="Cuidado geriátrico profesional"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          fetchPriority="high"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 via-foreground/20 to-transparent" />
+        <div className="relative z-10 flex flex-col justify-end p-10 xl:p-14 text-primary-foreground">
+          <h2 className="text-3xl xl:text-4xl font-black leading-tight mb-3">Cuidamos con<br />amor y dignidad</h2>
+          <p className="text-sm text-primary-foreground/80 max-w-md">
             Sistema integral de gestión para el cuidado geriátrico. 
             Hogar Belén Buesaco S.A.S. — Nariño, Colombia.
           </p>
           <div className="flex items-center gap-6 mt-8">
-            <div className="text-center">
-              <p className="text-2xl font-black">12</p>
-              <p className="text-[10px] uppercase tracking-widest text-white/60">Cupos</p>
-            </div>
-            <div className="w-px h-10 bg-white/20" />
-            <div className="text-center">
-              <p className="text-2xl font-black">26</p>
-              <p className="text-[10px] uppercase tracking-widest text-white/60">Formatos</p>
-            </div>
-            <div className="w-px h-10 bg-white/20" />
-            <div className="text-center">
-              <p className="text-2xl font-black">12</p>
-              <p className="text-[10px] uppercase tracking-widest text-white/60">Protocolos</p>
-            </div>
+            {[
+              { n: '12', l: 'Cupos' },
+              { n: '26', l: 'Formatos' },
+              { n: '12', l: 'Protocolos' },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-6">
+                {i > 0 && <div className="w-px h-10 bg-primary-foreground/20" />}
+                <div className="text-center">
+                  <p className="text-2xl font-black">{s.n}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-primary-foreground/60">{s.l}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Right side - Login form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 bg-background">
+      {/* Form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-8 bg-background safe-top safe-bottom">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
-            <img src={logo} alt="Hogar Belén" className="w-20 h-20 mx-auto mb-4 rounded-2xl" />
-            <h1 className="text-2xl font-black text-foreground tracking-tight">HOGAR BELÉN</h1>
+            <img src={logo} alt="Hogar Belén" className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl shadow-sm" loading="eager" />
+            <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">HOGAR BELÉN</h1>
             <p className="text-xs text-muted-foreground mt-1 font-medium">Buesaco S.A.S. • Sistema de Gestión Geriátrica</p>
           </div>
 
-          {/* Role selector */}
+          {/* Roles */}
           <div className="mb-6">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Seleccione su rol</p>
             <div className="grid grid-cols-4 gap-2">
@@ -101,14 +105,14 @@ const Login = () => {
                   <button
                     key={r.key}
                     onClick={() => setSelectedRole(r.key)}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center min-h-[48px] ${
+                    className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all text-center min-h-[48px] touch-manipulation ${
                       isActive
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-muted-foreground hover:border-primary/40'
+                        ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                        : 'border-border bg-card text-muted-foreground hover:border-primary/40 active:bg-muted'
                     }`}
                   >
                     <Icon size={16} />
-                    <span className="text-[9px] font-bold leading-tight">{r.label}</span>
+                    <span className="text-[8px] sm:text-[9px] font-bold leading-tight">{r.label}</span>
                   </button>
                 );
               })}
@@ -121,7 +125,7 @@ const Login = () => {
           </div>
 
           {/* Form card */}
-          <div className="bg-card border border-border rounded-3xl p-8 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-[var(--shadow-card)]">
             {mode === 'login' ? (
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
@@ -130,9 +134,11 @@ const Login = () => {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="mt-1 w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="mt-1 w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:border-primary focus:outline-none transition-shadow"
                     placeholder="usuario@hogarbelen.com"
                     required
+                    autoComplete="email"
+                    inputMode="email"
                   />
                 </div>
                 <div>
@@ -142,14 +148,16 @@ const Login = () => {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:outline-none pr-12"
+                      className="w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:border-primary focus:outline-none transition-shadow pr-12"
                       placeholder="••••••••"
                       required
+                      autoComplete="current-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 touch-manipulation"
+                      aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                     >
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -158,14 +166,14 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50 min-h-[48px]"
+                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-black uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 min-h-[48px] touch-manipulation"
                 >
-                  {loading ? "Ingresando..." : "Ingresar"}
+                  {loading ? "Ingresando…" : "Ingresar"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('reset')}
-                  className="w-full text-xs text-primary font-bold hover:underline"
+                  className="w-full text-xs text-primary font-bold hover:underline py-2 touch-manipulation"
                 >
                   ¿Olvidó su contraseña?
                 </button>
@@ -181,21 +189,23 @@ const Login = () => {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="mt-1 w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                    className="mt-1 w-full px-4 py-3 rounded-xl border border-input bg-background text-foreground text-sm focus:ring-2 focus:ring-ring focus:border-primary focus:outline-none transition-shadow"
                     required
+                    autoComplete="email"
+                    inputMode="email"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50 min-h-[48px]"
+                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-black uppercase tracking-widest hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 min-h-[48px] touch-manipulation"
                 >
-                  {loading ? "Enviando..." : "Enviar enlace"}
+                  {loading ? "Enviando…" : "Enviar enlace"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('login')}
-                  className="w-full text-xs text-primary font-bold hover:underline"
+                  className="w-full text-xs text-primary font-bold hover:underline py-2 touch-manipulation"
                 >
                   Volver al login
                 </button>

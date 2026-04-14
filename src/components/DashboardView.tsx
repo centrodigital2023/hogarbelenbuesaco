@@ -1,4 +1,5 @@
-import { usePermissions, MODULE_PERMISSION_MAP } from "@/hooks/usePermissions";
+import { memo } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Users, ClipboardList, Utensils, Heart, Activity,
   Stethoscope, ShieldCheck, AlertTriangle, LogOut,
@@ -23,41 +24,62 @@ const modules = [
   { id: 'residentes', type: 'Operativo', title: "Residentes", subtitle: "Directorio", icon: Users },
 ];
 
+const TYPE_COLORS: Record<string, string> = {
+  Operativo: "bg-primary/10 text-primary",
+  Clínico: "bg-cat-cognitive/10 text-cat-cognitive",
+  Salud: "bg-cat-functional/10 text-cat-functional",
+  Preventivo: "bg-cat-nutritional/10 text-cat-nutritional",
+  Riesgo: "bg-destructive/10 text-destructive",
+  Recursos: "bg-cat-mobility/10 text-cat-mobility",
+  Calidad: "bg-cat-social/10 text-cat-social",
+  Gerencia: "bg-cat-fragility/10 text-cat-fragility",
+  Finanzas: "bg-cat-mood/10 text-cat-mood",
+};
+
 interface DashboardViewProps {
   onModuleChange: (id: string) => void;
 }
 
+const ModuleCard = memo(({ mod, onClick }: { mod: typeof modules[0]; onClick: () => void }) => {
+  const Icon = mod.icon;
+  const colorClass = TYPE_COLORS[mod.type] || "bg-primary/10 text-primary";
+
+  return (
+    <button
+      onClick={onClick}
+      className="group relative bg-card border border-border rounded-2xl p-5 sm:p-6 text-left 
+        hover:border-primary/40 hover:shadow-[var(--shadow-elevated)] 
+        transition-all duration-200 active:scale-[0.97] min-h-[48px] touch-manipulation
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <div className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center mb-4 
+        group-hover:scale-105 transition-transform duration-200 shadow-sm">
+        <Icon size={20} />
+      </div>
+      <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md mb-2 ${colorClass}`}>
+        {mod.type}
+      </span>
+      <p className="text-sm sm:text-base font-black text-foreground leading-tight">{mod.title}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">{mod.subtitle}</p>
+    </button>
+  );
+});
+ModuleCard.displayName = "ModuleCard";
+
 const DashboardView = ({ onModuleChange }: DashboardViewProps) => {
   const { canAccessModule } = usePermissions();
-  
   const visibleModules = modules.filter(m => canAccessModule(m.id));
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h2 className="text-3xl font-black text-foreground">Panel de Control</h2>
-        <p className="text-sm text-muted-foreground">Operación Belén • 2026</p>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-black text-foreground">Panel de Control</h2>
+        <p className="text-sm text-muted-foreground mt-1">Operación Belén • 2026</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {visibleModules.map(mod => {
-          const Icon = mod.icon;
-          return (
-            <button
-              key={mod.id}
-              onClick={() => onModuleChange(mod.id)}
-              className="group relative bg-card border-2 border-border rounded-3xl p-6 text-left hover:border-primary hover:shadow-xl transition-all active:scale-[0.97] min-h-[48px]"
-            >
-              <div className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Icon size={22} />
-              </div>
-              <span className="inline-block text-[10px] font-bold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md mb-2">
-                {mod.type}
-              </span>
-              <p className="text-base font-black text-foreground leading-tight">{mod.title}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{mod.subtitle}</p>
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        {visibleModules.map(mod => (
+          <ModuleCard key={mod.id} mod={mod} onClick={() => onModuleChange(mod.id)} />
+        ))}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import {
@@ -37,6 +37,25 @@ const modules = [
   { id: 'residentes', title: "Residentes", subtitle: "Directorio", icon: Users },
 ];
 
+const NavItem = memo(({ m, isActive, onClick }: { m: typeof modules[0]; isActive: boolean; onClick: () => void }) => {
+  const Icon = m.icon;
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-all duration-150 min-h-[44px] touch-manipulation ${
+        isActive
+          ? 'bg-primary text-primary-foreground shadow-sm'
+          : 'text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground active:bg-secondary-foreground/15'
+      }`}
+    >
+      <Icon size={16} className="shrink-0" />
+      <span className="truncate">{m.title}</span>
+      {isActive && <ChevronRight size={12} className="ml-auto shrink-0" />}
+    </button>
+  );
+});
+NavItem.displayName = "NavItem";
+
 const AppLayout = ({ children, activeModule, onModuleChange }: AppLayoutProps) => {
   const { profile, roles, signOut } = useAuth();
   const { canAccessModule } = usePermissions();
@@ -51,45 +70,43 @@ const AppLayout = ({ children, activeModule, onModuleChange }: AppLayoutProps) =
     return () => clearInterval(interval);
   }, []);
 
-  // Filter modules by role permissions
+  const handleModuleClick = useCallback((id: string) => {
+    onModuleChange(id);
+    setSidebarOpen(false);
+  }, [onModuleChange]);
+
   const visibleModules = modules.filter(m => canAccessModule(m.id));
 
   return (
     <div className="min-h-screen bg-background flex">
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-secondary text-secondary-foreground transform transition-transform lg:translate-x-0 lg:static ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-[280px] md:w-64 bg-secondary text-secondary-foreground 
+          transform transition-transform duration-200 ease-out will-change-transform
+          lg:translate-x-0 lg:static safe-top safe-bottom
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
         <div className="flex items-center gap-3 px-5 py-4 border-b border-secondary-foreground/10">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-sm">
             <Sparkles size={18} className="text-primary-foreground" />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-black tracking-tight truncate">HOGAR BELÉN</h1>
             <p className="text-[10px] text-secondary-foreground/60 font-medium">Buesaco S.A.S.</p>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-secondary-foreground/60">
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-2 -mr-2 text-secondary-foreground/60 hover:text-secondary-foreground rounded-lg active:bg-secondary-foreground/10 touch-manipulation"
+            aria-label="Cerrar menú"
+          >
             <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5" style={{ maxHeight: 'calc(100vh - 140px)' }}>
-          {visibleModules.map(m => {
-            const Icon = m.icon;
-            const isActive = activeModule === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => { onModuleChange(m.id); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-xs font-bold transition-all min-h-[40px] ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-secondary-foreground/70 hover:bg-secondary-foreground/10 hover:text-secondary-foreground'
-                }`}
-              >
-                <Icon size={16} />
-                <span className="truncate">{m.title}</span>
-                {isActive && <ChevronRight size={12} className="ml-auto" />}
-              </button>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5 overscroll-contain" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+          {visibleModules.map(m => (
+            <NavItem key={m.id} m={m} isActive={activeModule === m.id} onClick={() => handleModuleClick(m.id)} />
+          ))}
         </nav>
 
         <div className="px-4 py-3 border-t border-secondary-foreground/10">
@@ -97,34 +114,45 @@ const AppLayout = ({ children, activeModule, onModuleChange }: AppLayoutProps) =
           <p className="text-[9px] text-secondary-foreground/40 capitalize">{roles.map(r => r.replace('_', ' ')).join(', ') || 'Sin rol'}</p>
           <button
             onClick={signOut}
-            className="mt-2 w-full text-[10px] font-bold text-secondary-foreground/50 hover:text-destructive transition-colors text-left"
+            className="mt-2 w-full text-[10px] font-bold text-secondary-foreground/50 hover:text-destructive transition-colors text-left touch-manipulation"
           >
             Cerrar sesión
           </button>
         </div>
       </aside>
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {/* Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-foreground/30 z-40 lg:hidden glass animate-fade-in"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 flex flex-col min-h-screen">
-        <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-30">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-xl hover:bg-muted">
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+        <header className="bg-card/80 glass border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-30 safe-top">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-muted active:bg-muted/80 touch-manipulation"
+            aria-label="Abrir menú"
+          >
             <Menu size={20} />
           </button>
           <div className="flex items-center gap-2 text-xs ml-auto">
-            <span className={`w-2 h-2 rounded-full ${autoSave ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <span className={`w-2 h-2 rounded-full transition-colors ${autoSave ? 'bg-accent-foreground/50 animate-pulse' : 'bg-cat-nutritional'}`} />
             <span className="text-muted-foreground font-medium">
-              {autoSave ? 'Sincronizando...' : 'En Línea'}
+              {autoSave ? 'Sincronizando…' : 'En Línea'}
             </span>
             <span className="font-black bg-muted px-2 py-1 rounded-lg text-[10px]">CO</span>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 max-w-7xl mx-auto w-full">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {children}
         </main>
 
-        <footer className="text-center py-3 text-[10px] text-muted-foreground font-medium border-t border-border">
+        <footer className="text-center py-3 text-[10px] text-muted-foreground font-medium border-t border-border safe-bottom">
           Hogar Belén • Gestión Segura • Hecho en Colombia 🇨🇴
         </footer>
       </div>
