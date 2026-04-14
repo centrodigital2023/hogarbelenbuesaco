@@ -15,6 +15,7 @@ interface Resident { id: string; full_name: string; }
 const TherapyRecords = ({ onBack }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [residents, setResidents] = useState<Resident[]>([]);
   const [weekStart, setWeekStart] = useState(new Date().toISOString().split('T')[0]);
   const [entries, setEntries] = useState<Record<string, {

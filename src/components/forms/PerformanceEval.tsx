@@ -12,6 +12,7 @@ interface Props { onBack: () => void; }
 const PerformanceEval = ({ onBack }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [form, setForm] = useState({
     evaluated_user_id: '', period: '',

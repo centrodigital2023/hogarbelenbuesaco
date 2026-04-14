@@ -17,6 +17,7 @@ const AREAS_GENERAL = ['Lavamanos', 'Inodoros', 'Pisos', 'Puertas y ventanas', '
 const DisinfectionRecord = ({ onBack }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [recordType, setRecordType] = useState<'cocina' | 'general'>('cocina');
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [recordDate, setRecordDate] = useState(new Date().toISOString().split('T')[0]);

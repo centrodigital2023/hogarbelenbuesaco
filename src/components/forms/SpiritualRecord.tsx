@@ -14,6 +14,7 @@ const ACTIVITY_TYPES = ['Oración comunitaria', 'Misa/Culto', 'Visita pastoral',
 const SpiritualRecord = ({ onBack }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [recordDate, setRecordDate] = useState(new Date().toISOString().split('T')[0]);
   const [activityType, setActivityType] = useState(ACTIVITY_TYPES[0]);
   const [topic, setTopic] = useState("");

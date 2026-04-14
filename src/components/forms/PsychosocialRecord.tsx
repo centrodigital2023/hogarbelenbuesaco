@@ -14,6 +14,7 @@ const MOTIVOS = ['Adaptación al hogar', 'Conflictos interpersonales', 'Duelo', 
 const PsychosocialRecord = ({ onBack }: Props) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
   const [residents, setResidents] = useState<any[]>([]);
   const [recordType, setRecordType] = useState<'individual' | 'grupal'>('individual');
   const [residentId, setResidentId] = useState("");

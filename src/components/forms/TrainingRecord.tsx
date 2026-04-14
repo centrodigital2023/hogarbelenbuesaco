@@ -13,6 +13,7 @@ interface Props { onBack: () => void; }
 
 const TrainingRecord = ({ onBack }: Props) => {
   const { user } = useAuth();
+  const contentRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [form, setForm] = useState({
     topic: '', facilitator: '', facilitator_entity: '', training_date: new Date().toISOString().split('T')[0],
