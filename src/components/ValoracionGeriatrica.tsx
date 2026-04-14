@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Activity, Brain, Heart, Utensils, AlertTriangle,
   Users, ShieldCheck, Briefcase, ChevronRight, User, History, Save,
-  FileText, Download, Sparkles, ClipboardList
+  FileText, Download, Sparkles, ClipboardList, Calendar, Clock, Plus, Trash2
 } from "lucide-react";
 import { TESTS_GERIATRICOS } from "@/data/tests-geriatricos";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,12 @@ import SignaturePad from "./SignaturePad";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const iconMap: Record<string, React.ReactNode> = {
   Activity: <Activity size={20} />,
@@ -68,6 +74,29 @@ interface ValoracionGeriatricaProps {
   onBack: () => void;
 }
 
+// ── Care Plan ──────────────────────────────────────────────────────────────
+interface CarePlan {
+  planDate: string;
+  professional: string;
+  professionalRole: string;
+  diagnoses: string[];
+  medications: string;
+  objectives: string[];
+  recommendations: string;
+  nextReviewDate: string;
+}
+
+const EMPTY_CARE_PLAN: CarePlan = {
+  planDate: new Date().toISOString().split('T')[0],
+  professional: '',
+  professionalRole: '',
+  diagnoses: [''],
+  medications: '',
+  objectives: [''],
+  recommendations: '',
+  nextReviewDate: '',
+};
+
 const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -86,8 +115,13 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
 
   // History
   const [history, setHistory] = useState<AssessmentHistory[]>([]);
-  // Track whether the report-level signature has been confirmed
-  const [reportSigned, setReportSigned] = useState(false);
+  // Tracks whether the Informe-tab report signature has been confirmed by the user
+  const [isReportSigned, setIsReportSigned] = useState(false);
+
+  // Care Plan
+  const [carePlan, setCarePlan] = useState<CarePlan>(EMPTY_CARE_PLAN);
+  const [savedPlans, setSavedPlans] = useState<AssessmentHistory[]>([]);
+  const [savingPlan, setSavingPlan] = useState(false);
 
   const activeTest = useMemo(() => testKey ? TESTS_GERIATRICOS[testKey] : null, [testKey]);
 
@@ -110,13 +144,62 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
       .eq('resident_id', residentId)
       .order('created_at', { ascending: false })
       .limit(50);
-    if (data) setHistory(data);
+    if (data) {
+      const { plans, assessments } = data.reduce<{ plans: AssessmentHistory[]; assessments: AssessmentHistory[] }>(
+        (acc, d) => {
+          if (d.test_key === 'plan-atencion') acc.plans.push(d);
+          else acc.assessments.push(d);
+          return acc;
+        },
+        { plans: [], assessments: [] }
+      );
+      setHistory(assessments);
+      setSavedPlans(plans);
+    }
   };
 
   const handleSelectResident = (r: Resident) => {
     setSelectedResident(r);
     fetchHistory(r.id);
+    setCarePlan(EMPTY_CARE_PLAN);
+    setIsReportSigned(false);
     setStep('menu');
+  };
+
+  const handleSavePlan = async () => {
+    if (!selectedResident || !user) return;
+    setSavingPlan(true);
+    const planJson = {
+      planDate: carePlan.planDate,
+      professional: carePlan.professional,
+      professionalRole: carePlan.professionalRole,
+      diagnoses: carePlan.diagnoses.filter(Boolean),
+      medications: carePlan.medications,
+      objectives: carePlan.objectives.filter(Boolean),
+      recommendations: carePlan.recommendations,
+      nextReviewDate: carePlan.nextReviewDate,
+    };
+    const { error } = await supabase.from('geriatric_assessments').insert({
+      resident_id: selectedResident.id,
+      created_by: user.id,
+      test_key: 'plan-atencion',
+      test_name: 'Plan de Atención Geriátrica',
+      score: 0,
+      max_score: 0,
+      // interpretation is reused here as a human-readable summary of the plan (diagnoses/objectives count)
+      // since this record uses test_key='plan-atencion' and score=0 to distinguish it from test assessments
+      interpretation: `Diagnósticos: ${planJson.diagnoses.length} | Objetivos: ${planJson.objectives.length}`,
+      answers: planJson as any,
+      signature_evaluator: sigEval,
+      signature_supervisor: sigSuper,
+    });
+    if (error) {
+      toast({ title: "Error al guardar plan", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "✅ Plan de atención guardado", description: selectedResident.full_name });
+      fetchHistory(selectedResident.id);
+    }
+    setSavingPlan(false);
   };
 
   const handleAnswer = (qId: string, value: number) => {
@@ -449,6 +532,9 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
               <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{history.length}</Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="plan" className="flex items-center gap-1.5">
+            <Calendar size={14} /> Plan
+          </TabsTrigger>
           <TabsTrigger value="informe" className="flex items-center gap-1.5">
             <FileText size={14} /> Informe
           </TabsTrigger>
@@ -520,14 +606,249 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
           )}
         </TabsContent>
 
+        {/* ── TAB: PLAN DE ATENCIÓN ── */}
+        <TabsContent value="plan">
+          <div className="space-y-5 max-w-2xl">
+            {/* Header info */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calendar size={15} className="text-primary" /> Datos del Plan
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Fecha del Plan</Label>
+                  <Input
+                    type="date"
+                    value={carePlan.planDate}
+                    onChange={e => setCarePlan(p => ({ ...p, planDate: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Próxima Revisión</Label>
+                  <Input
+                    type="date"
+                    value={carePlan.nextReviewDate}
+                    onChange={e => setCarePlan(p => ({ ...p, nextReviewDate: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Profesional Responsable</Label>
+                  <Input
+                    placeholder="Nombre del profesional"
+                    value={carePlan.professional}
+                    onChange={e => setCarePlan(p => ({ ...p, professional: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Cargo / Especialidad</Label>
+                  <Select
+                    value={carePlan.professionalRole}
+                    onValueChange={v => setCarePlan(p => ({ ...p, professionalRole: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar cargo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="geriatra">Médico Geriatra</SelectItem>
+                      <SelectItem value="medico">Médico General</SelectItem>
+                      <SelectItem value="enfermeria">Enfermería</SelectItem>
+                      <SelectItem value="psicologia">Psicología</SelectItem>
+                      <SelectItem value="trabajo-social">Trabajo Social</SelectItem>
+                      <SelectItem value="fisioterapia">Fisioterapia</SelectItem>
+                      <SelectItem value="nutricion">Nutrición</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Diagnoses */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Activity size={15} className="text-primary" /> Diagnósticos
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setCarePlan(p => ({ ...p, diagnoses: [...p.diagnoses, ''] }))}
+                  >
+                    <Plus size={13} className="mr-1" /> Agregar
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {carePlan.diagnoses.map((dx, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      placeholder={`Diagnóstico ${i + 1}`}
+                      value={dx}
+                      onChange={e => setCarePlan(p => {
+                        const next = [...p.diagnoses];
+                        next[i] = e.target.value;
+                        return { ...p, diagnoses: next };
+                      })}
+                    />
+                    {carePlan.diagnoses.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive"
+                        onClick={() => setCarePlan(p => ({ ...p, diagnoses: p.diagnoses.filter((_, j) => j !== i) }))}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Medications */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock size={15} className="text-primary" /> Medicamentos Actuales
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Listar medicamentos, dosis y frecuencia..."
+                  rows={4}
+                  value={carePlan.medications}
+                  onChange={e => setCarePlan(p => ({ ...p, medications: e.target.value }))}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Objectives */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-primary" /> Objetivos del Plan
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setCarePlan(p => ({ ...p, objectives: [...p.objectives, ''] }))}
+                  >
+                    <Plus size={13} className="mr-1" /> Agregar
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {carePlan.objectives.map((obj, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      placeholder={`Objetivo ${i + 1}`}
+                      value={obj}
+                      onChange={e => setCarePlan(p => {
+                        const next = [...p.objectives];
+                        next[i] = e.target.value;
+                        return { ...p, objectives: next };
+                      })}
+                    />
+                    {carePlan.objectives.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive"
+                        onClick={() => setCarePlan(p => ({ ...p, objectives: p.objectives.filter((_, j) => j !== i) }))}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Recommendations / Observations */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <FileText size={15} className="text-primary" /> Recomendaciones y Observaciones
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Escriba recomendaciones clínicas, observaciones relevantes..."
+                  rows={5}
+                  value={carePlan.recommendations}
+                  onChange={e => setCarePlan(p => ({ ...p, recommendations: e.target.value }))}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Signatures + Save */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Save size={15} className="text-primary" /> Firmas y Guardar
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                  <SignaturePad label="Profesional Evaluador" onChange={v => setSigEval(v)} />
+                  <SignaturePad label="Supervisor / Director" onChange={v => setSigSuper(v)} />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSavePlan}
+                    disabled={savingPlan || !carePlan.professional}
+                    className="flex items-center gap-2"
+                  >
+                    <Save size={15} />
+                    {savingPlan ? "Guardando..." : "Guardar Plan de Atención"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Saved plans history */}
+            {savedPlans.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <History size={15} className="text-muted-foreground" /> Planes Anteriores
+                    <Badge variant="secondary" className="ml-1 text-[10px]">{savedPlans.length}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {savedPlans.map(p => (
+                    <div key={p.id} className="flex items-center justify-between bg-muted rounded-xl px-4 py-3">
+                      <div>
+                        <p className="text-xs font-bold text-foreground">{p.test_name}</p>
+                        <p className="text-[10px] text-muted-foreground">{p.assessment_date}</p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{p.interpretation}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
         {/* ── TAB: INFORME ── */}
         <TabsContent value="informe">
-          {history.length === 0 ? (
+          {(() => {
+            const hasAnyAssessments = history.length > 0 || savedPlans.length > 0;
+            if (!hasAnyAssessments) return (
             <div className="bg-muted rounded-2xl p-10 text-center">
               <Sparkles size={32} className="text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No hay valoraciones guardadas para generar un informe.</p>
+              <p className="text-xs text-muted-foreground mt-1">Completa escalas en la pestaña "Escalas" o crea un plan en la pestaña "Plan".</p>
             </div>
-          ) : (
+            );
+            return (
             <div className="space-y-5">
               <div className="bg-card border border-border rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -585,12 +906,30 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
                   ));
                 })()}
 
+                {/* Care plan summary if available */}
+                {savedPlans.length > 0 && (() => {
+                  const latestPlan = savedPlans[0];
+                  const planData = latestPlan.interpretation;
+                  return (
+                    <div className="mt-4 mb-2">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Plan de Atención Vigente</p>
+                      <div className="bg-muted rounded-xl px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-foreground">{latestPlan.test_name}</p>
+                          <p className="text-[10px] text-muted-foreground">{latestPlan.assessment_date}</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{planData}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Signature dialog inside report */}
                 <div className="border-t border-border pt-4 mt-4 flex justify-end">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <button className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest min-h-[48px] transition-colors ${reportSigned ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-primary text-primary-foreground hover:opacity-90'}`}>
-                        <Download size={14} /> {reportSigned ? 'Informe Firmado ✓' : 'Firmar Informe'}
+                      <button className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest min-h-[48px] transition-colors ${isReportSigned ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-primary text-primary-foreground hover:opacity-90'}`}>
+                        <Download size={14} /> {isReportSigned ? 'Informe Firmado ✓' : 'Firmar Informe'}
                       </button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
@@ -610,7 +949,7 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
                             disabled={!sigEval && !sigSuper}
                             className="flex items-center gap-2 bg-primary text-primary-foreground px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-40 min-h-[48px]"
                             onClick={() => {
-                              setReportSigned(true);
+                              setIsReportSigned(true);
                               toast({ title: "Informe firmado", description: "Las firmas del informe han sido registradas." });
                             }}
                           >
@@ -623,7 +962,8 @@ const ValoracionGeriatrica = ({ onBack }: ValoracionGeriatricaProps) => {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
