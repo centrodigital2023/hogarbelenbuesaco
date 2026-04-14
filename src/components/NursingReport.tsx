@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import FormHeader from "@/components/FormHeader";
 import ExportButtons from "@/components/ExportButtons";
-import { Sparkles, Loader2, Calendar, BarChart3, Users, HeartPulse, AlertTriangle, Pill } from "lucide-react";
+import ShareButtons from "@/components/ShareButtons";
+import { Sparkles, Loader2, Calendar, BarChart3, Users, HeartPulse, AlertTriangle, Pill, Pencil, Save } from "lucide-react";
 
 interface Props { onBack: () => void; }
 
@@ -22,6 +23,7 @@ const NursingReport = ({ onBack }: Props) => {
   const [report, setReport] = useState("");
   const [stats, setStats] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const generateReport = async () => {
     if (!user) return;
@@ -36,6 +38,7 @@ const NursingReport = ({ onBack }: Props) => {
       if (data?.report) {
         setReport(data.report);
         setStats(data.stats);
+        setEditing(false);
       } else {
         toast({ title: "Sin datos", description: "No se encontraron registros para el período seleccionado.", variant: "destructive" });
       }
@@ -55,6 +58,11 @@ const NursingReport = ({ onBack }: Props) => {
       setDateFrom(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]);
       setDateTo(now.toISOString().split("T")[0]);
     }
+  };
+
+  const getReportText = () => {
+    const header = `HOGAR BELÉN - JUNTOS CUIDAMOS MEJOR\nInforme de Enfermería\n${dateFrom} a ${dateTo}\n\n`;
+    return header + report;
   };
 
   const StatCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) => (
@@ -77,7 +85,7 @@ const NursingReport = ({ onBack }: Props) => {
         <div className="flex flex-wrap gap-3 mb-4">
           {["semanal", "mensual", "personalizado"].map((t) => (
             <button key={t} onClick={() => setPresetRange(t)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors min-h-[40px] ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors min-h-[40px] touch-manipulation ${
                 reportType === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}>
               {t === "semanal" ? "📅 Semanal" : t === "mensual" ? "📆 Mensual" : "🔧 Personalizado"}
@@ -99,7 +107,7 @@ const NursingReport = ({ onBack }: Props) => {
         </div>
 
         <button onClick={generateReport} disabled={generating}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl text-xs font-bold disabled:opacity-40 min-h-[48px]">
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-xl text-xs font-bold disabled:opacity-40 min-h-[48px] touch-manipulation">
           {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {generating ? "Generando informe..." : "Generar Informe con IA"}
         </button>
@@ -117,22 +125,50 @@ const NursingReport = ({ onBack }: Props) => {
       )}
 
       {report && (
-        <div ref={contentRef} className="bg-card border border-border rounded-2xl p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 className="text-sm font-black text-foreground">Informe Generado</h3>
-            <ExportButtons contentRef={contentRef} title={`Informe Enfermería ${dateFrom} a ${dateTo}`} fileName={`informe_enfermeria_${dateFrom}_${dateTo}`} textContent={report} />
+        <div className="space-y-4 animate-fade-in">
+          <div ref={contentRef} className="bg-card border border-border rounded-2xl p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h3 className="text-sm font-black text-foreground">Informe Generado</h3>
+              <button
+                onClick={() => setEditing(!editing)}
+                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/80 transition-colors touch-manipulation px-3 py-2 rounded-lg hover:bg-primary/5"
+              >
+                {editing ? <><Save size={14} /> Finalizar edición</> : <><Pencil size={14} /> Editar informe</>}
+              </button>
+            </div>
+
+            {editing ? (
+              <textarea
+                value={report}
+                onChange={e => setReport(e.target.value)}
+                className="w-full min-h-[400px] p-4 rounded-xl border border-input bg-background text-sm font-mono leading-relaxed resize-y focus:ring-2 focus:ring-ring focus:outline-none"
+                autoFocus
+              />
+            ) : (
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                {report.split("\n").map((line, i) => {
+                  if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-black text-foreground mt-6 mb-3">{line.replace("# ", "")}</h1>;
+                  if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-foreground mt-5 mb-2">{line.replace("## ", "")}</h2>;
+                  if (line.startsWith("### ")) return <h3 key={i} className="text-base font-bold text-foreground mt-4 mb-2">{line.replace("### ", "")}</h3>;
+                  if (line.startsWith("- ")) return <p key={i} className="text-sm text-muted-foreground ml-4 mb-1">• {line.replace("- ", "")}</p>;
+                  if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-sm font-bold text-foreground mb-1">{line.replace(/\*\*/g, "")}</p>;
+                  if (line.startsWith("---")) return <hr key={i} className="my-4 border-border" />;
+                  if (line.trim() === "") return <div key={i} className="h-2" />;
+                  return <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-2">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
+                })}
+              </div>
+            )}
           </div>
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            {report.split("\n").map((line, i) => {
-              if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-black text-foreground mt-6 mb-3">{line.replace("# ", "")}</h1>;
-              if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-foreground mt-5 mb-2">{line.replace("## ", "")}</h2>;
-              if (line.startsWith("### ")) return <h3 key={i} className="text-base font-bold text-foreground mt-4 mb-2">{line.replace("### ", "")}</h3>;
-              if (line.startsWith("- ")) return <p key={i} className="text-sm text-muted-foreground ml-4 mb-1">• {line.replace("- ", "")}</p>;
-              if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-sm font-bold text-foreground mb-1">{line.replace(/\*\*/g, "")}</p>;
-              if (line.startsWith("---")) return <hr key={i} className="my-4 border-border" />;
-              if (line.trim() === "") return <div key={i} className="h-2" />;
-              return <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-2">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>;
-            })}
+
+          {/* Export & Share — always available for re-export after editing */}
+          <div className="flex flex-wrap items-center gap-3">
+            <ExportButtons
+              contentRef={contentRef}
+              title={`Informe Enfermería ${dateFrom} a ${dateTo}`}
+              fileName={`informe_enfermeria_${dateFrom}_${dateTo}`}
+              textContent={getReportText()}
+            />
+            <ShareButtons title={`Informe Enfermería ${dateFrom} a ${dateTo}`} text={getReportText()} />
           </div>
         </div>
       )}
