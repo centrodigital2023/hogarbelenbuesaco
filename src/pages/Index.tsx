@@ -42,6 +42,7 @@ import FinanceModule from "@/components/FinanceModule";
 import BlogModule from "@/components/BlogModule";
 import SocialMediaModule from "@/components/SocialMediaModule";
 import AuditReport from "@/components/AuditReport";
+import BienestarModule from "@/components/BienestarModule";
 import UnifiedKitchen from "@/components/forms/UnifiedKitchen";
 import PsychosocialRecord from "@/components/forms/PsychosocialRecord";
 import SpiritualRecord from "@/components/forms/SpiritualRecord";
@@ -191,6 +192,7 @@ const Index = () => {
     if (view === 'dashboard') return <DashboardView onModuleChange={setView} />;
     if (view === '1') return <IngresoSubMenu onSelectForm={setForm} onBack={() => setView('dashboard')} />;
     if (view === '2') return <ValoracionGeriatrica onBack={() => setView('dashboard')} />;
+    if (view === '4') return <BienestarModule onBack={() => setView('dashboard')} />;
     if (view === 'usuarios') return <UserManagement onBack={() => setView('dashboard')} />;
     if (view === 'residentes') return <ResidentManagement onBack={() => setView('dashboard')} />;
     if (view === 'finanzas') return <FinanceModule onBack={() => setView('dashboard')} />;
