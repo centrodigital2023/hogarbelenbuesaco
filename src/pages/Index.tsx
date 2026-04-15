@@ -172,14 +172,20 @@ const Index = () => {
       const permModule = FORM_MODULE_MAP[form];
 
       if (FormComponent) {
+        const formContent = (
+          <>
+            <FormComponent onBack={() => setForm(null)} />
+            <CrossNavigation currentFormId={form} onNavigate={(id) => setForm(id)} />
+          </>
+        );
         if (permModule && !canAccessModule(permModule === 'ingreso' ? '1' : permModule === 'valoracion' ? '2' : permModule)) {
           return (
             <ProtectedModule module={permModule as any}>
-              <FormComponent onBack={() => setForm(null)} />
+              {formContent}
             </ProtectedModule>
           );
         }
-        return <FormComponent onBack={() => setForm(null)} />;
+        return formContent;
       }
       return (
         <div className="animate-fade-in">
