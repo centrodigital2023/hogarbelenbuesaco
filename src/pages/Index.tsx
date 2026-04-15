@@ -72,7 +72,7 @@ const MODULE_INFO: Record<string, { title: string; subtitle: string; icon: any; 
     { id: 'HB-F11', label: 'HB-F11: Acomp. Espiritual' },
   ]},
   '5': { title: '5. Salud Diaria', subtitle: 'Enfermería', icon: Activity, forms: [
-    { id: 'HB-F4', label: 'HB-F4: Bitácora' }, { id: 'HB-F14', label: 'HB-F14: Medicamentos' },
+    { id: 'HB-F14', label: 'HB-F14: Medicamentos' },
     { id: 'HB-F15', label: 'HB-F15: Administración Med.' }, { id: 'HB-F16', label: 'HB-F16: Signos Vitales' },
     { id: 'NURSING-AI', label: '🤖 Notas Enfermería IA' },
     { id: 'NURSING-REPORT', label: '📊 Informe Enfermería IA' },
