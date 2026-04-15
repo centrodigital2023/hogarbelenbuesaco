@@ -60,10 +60,7 @@ const DailyLog = ({ onBack }: Props) => {
   const [generatingAI, setGeneratingAI] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // History
-  const [showHistory, setShowHistory] = useState(false);
-  const [historyData, setHistoryData] = useState<any[]>([]);
-  const historyRef = useRef<HTMLDivElement>(null);
+  // History - now using FormHistory component
 
   // Single resident report
   const [selectedResident, setSelectedResident] = useState('');
@@ -116,28 +113,34 @@ const DailyLog = ({ onBack }: Props) => {
     setGeneratingAI(false);
   };
 
-  // History 90 days
-  const loadHistory = async () => {
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const { data } = await supabase.from('daily_logs').select('*, residents(full_name)')
-      .gte('log_date', ninetyDaysAgo.toISOString().split('T')[0])
-      .order('log_date', { ascending: false })
-      .limit(500);
-    if (data) setHistoryData(data);
-    setShowHistory(true);
-  };
+  // History columns for FormHistory
+  const historyColumns: HistoryColumn[] = [
+    { key: 'log_date', label: 'Fecha' },
+    { key: 'shift', label: 'Turno' },
+    { key: 'resident_name', label: 'Residente', render: (_v, row) => (row.residents as any)?.full_name || '-' },
+    { key: 'responsible_name', label: 'Responsable' },
+    { key: 'blood_pressure', label: 'T.A.' },
+    { key: 'spo2', label: 'SpO2' },
+    { key: 'temperature', label: 'Temp' },
+    { key: 'glucose', label: 'Gluc' },
+    { key: 'heart_rate', label: 'FC' },
+    { key: 'weight', label: 'Peso' },
+    { key: 'nutrition_pct', label: 'Nutr%' },
+    { key: 'mood', label: 'Ánimo' },
+  ];
 
-  const getHistoryTextContent = () => {
-    const lines = [`Historial Bitácora Diaria (últimos 90 días)\n`];
-    historyData.forEach(h => {
-      const name = (h.residents as any)?.full_name || 'N/A';
-      lines.push(`${h.log_date} | ${h.shift} | ${name} | Resp: ${h.responsible_name || '-'} | TA: ${h.blood_pressure || '-'} | SpO2: ${h.spo2 || '-'}% | Temp: ${h.temperature || '-'}°C | Gluc: ${h.glucose || '-'} | FC: ${h.heart_rate || '-'} | Peso: ${h.weight || '-'}kg | Nutrición: ${h.nutrition_pct}% | Ánimo: ${h.mood || '-'}`);
-    });
-    return lines.join('\n');
-  };
+  const historyEditableFields = [
+    { key: 'blood_pressure', label: 'T.A.', type: 'text' as const },
+    { key: 'spo2', label: 'SpO2', type: 'number' as const },
+    { key: 'temperature', label: 'Temp', type: 'number' as const },
+    { key: 'glucose', label: 'Glucemia', type: 'number' as const },
+    { key: 'heart_rate', label: 'FC', type: 'number' as const },
+    { key: 'weight', label: 'Peso', type: 'number' as const },
+    { key: 'observations', label: 'Novedades', type: 'text' as const },
+    { key: 'mood', label: 'Ánimo', type: 'select' as const, options: MOODS },
+  ];
 
-  const getHistoryTableData = () => historyData.map(h => ({
+  const historyExportTransform = (h: any) => ({
     Fecha: h.log_date, Turno: h.shift,
     Residente: (h.residents as any)?.full_name || '',
     Responsable: h.responsible_name || '',
@@ -145,7 +148,7 @@ const DailyLog = ({ onBack }: Props) => {
     Glucemia: h.glucose || '', FC: h.heart_rate || '', 'Peso kg': h.weight || '',
     'Nutrición %': h.nutrition_pct, Hidratación: h.hydration_glasses,
     Eliminación: h.elimination, Ánimo: h.mood, Novedades: h.observations,
-  }));
+  });
 
   // Save
   const handleSave = async () => {
