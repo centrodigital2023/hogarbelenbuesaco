@@ -9,6 +9,8 @@ import ShareButtons from "@/components/ShareButtons";
 import SmartReportSection from "@/components/SmartReportSection";
 import SignaturePad from "@/components/SignaturePad";
 import { Sparkles, History, Loader2, AlertTriangle, User, FileText, Send } from "lucide-react";
+import FormHistory from "@/components/FormHistory";
+import type { HistoryColumn } from "@/components/FormHistory";
 
 interface Props { onBack: () => void; }
 interface Resident { id: string; full_name: string; }
