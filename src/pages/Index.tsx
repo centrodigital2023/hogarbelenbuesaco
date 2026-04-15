@@ -43,6 +43,7 @@ import FinanceModule from "@/components/FinanceModule";
 import BlogModule from "@/components/BlogModule";
 import SocialMediaModule from "@/components/SocialMediaModule";
 import AuditReport from "@/components/AuditReport";
+import ResidentTimeline from "@/components/ResidentTimeline";
 import UnifiedKitchen from "@/components/forms/UnifiedKitchen";
 import PsychosocialRecord from "@/components/forms/PsychosocialRecord";
 import SpiritualRecord from "@/components/forms/SpiritualRecord";
@@ -203,6 +204,7 @@ const Index = () => {
     if (view === 'finanzas') return <FinanceModule onBack={() => setView('dashboard')} />;
     if (view === 'blog') return <BlogModule onBack={() => setView('dashboard')} />;
     if (view === 'redes') return <SocialMediaModule onBack={() => setView('dashboard')} />;
+    if (view === 'timeline') return <ResidentTimeline onBack={() => setView('dashboard')} onNavigateForm={(id) => setForm(id)} />;
 
     const info = MODULE_INFO[view];
     if (info && info.forms.length > 0) {
