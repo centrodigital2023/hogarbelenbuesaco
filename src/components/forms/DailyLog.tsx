@@ -239,20 +239,19 @@ const DailyLog = ({ onBack }: Props) => {
                 {SHIFTS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
             </div>
-          </div>
-          <div className="flex items-end gap-2">
-            <FormHistory
-              tableName="daily_logs"
-              columns={historyColumns}
-              title="Historial Bitácora Diaria"
-              fileName="historial_bitacora"
-              days={180}
-              dateColumn="log_date"
-              selectClause="*, residents(full_name)"
-              editableFields={historyEditableFields}
-              exportTransform={historyExportTransform}
-            />
-          </div>
+            <div className="flex items-end gap-2">
+              <FormHistory
+                tableName="daily_logs"
+                columns={historyColumns}
+                title="Historial Bitácora Diaria"
+                fileName="historial_bitacora"
+                days={180}
+                dateColumn="log_date"
+                selectClause="*, residents(full_name)"
+                editableFields={historyEditableFields}
+                exportTransform={historyExportTransform}
+              />
+            </div>
           </div>
 
           {/* Responsible */}
