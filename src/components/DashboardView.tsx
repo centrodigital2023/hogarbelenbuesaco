@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
+import AlertsPanel from "@/components/AlertsPanel";
 import {
   Users, ClipboardList, Utensils, Heart, Activity,
   Stethoscope, ShieldCheck, AlertTriangle, LogOut,
@@ -77,6 +78,7 @@ const DashboardView = ({ onModuleChange }: DashboardViewProps) => {
         <h2 className="text-2xl sm:text-3xl font-black text-foreground">Panel de Control</h2>
         <p className="text-sm text-muted-foreground mt-1">Operación Belén • 2026</p>
       </div>
+      <AlertsPanel />
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {visibleModules.map(mod => (
           <ModuleCard key={mod.id} mod={mod} onClick={() => onModuleChange(mod.id)} />
