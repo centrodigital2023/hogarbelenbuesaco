@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions, MODULE_PERMISSION_MAP } from "@/hooks/usePermissions";
+import CrossNavigation from "@/components/CrossNavigation";
 import Login from "@/pages/Login";
 import AppLayout from "@/components/AppLayout";
 import IngresoSubMenu from "@/components/IngresoSubMenu";
