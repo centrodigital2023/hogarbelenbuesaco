@@ -402,65 +402,6 @@ const DailyLog = ({ onBack }: Props) => {
       <SmartReportSection module="salud" formTitle="HB-F4: Bitácora Diaria" formData={entries} contentRef={contentRef} />
       <ActionButtons onFinish={handleSave} disabled={saving || Object.keys(entries).length === 0} />
 
-      {/* History Panel */}
-      {showHistory && (
-        <div className="bg-muted rounded-2xl p-6 mt-6" ref={historyRef}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-black text-foreground">Historial (últimos 90 días) — {historyData.length} registros</h3>
-            <button onClick={() => setShowHistory(false)} className="text-xs text-muted-foreground hover:text-foreground">Cerrar</button>
-          </div>
-          {historyData.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Sin registros previos.</p>
-          ) : (
-            <>
-              <div className="overflow-x-auto max-h-80 overflow-y-auto mb-4">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-2 font-bold text-muted-foreground">Fecha</th>
-                      <th className="text-left p-2 font-bold text-muted-foreground">Turno</th>
-                      <th className="text-left p-2 font-bold text-muted-foreground">Residente</th>
-                      <th className="text-left p-2 font-bold text-muted-foreground">Responsable</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">T.A.</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">SpO2</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">Temp</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">Gluc</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">FC</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">Peso</th>
-                      <th className="text-center p-2 font-bold text-muted-foreground">Nutr%</th>
-                      <th className="text-left p-2 font-bold text-muted-foreground">Ánimo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historyData.map(h => (
-                      <tr key={h.id} className="border-b border-border/50 hover:bg-background/50">
-                        <td className="p-2">{h.log_date}</td>
-                        <td className="p-2">{h.shift}</td>
-                        <td className="p-2 font-medium">{(h.residents as any)?.full_name || '-'}</td>
-                        <td className="p-2">{h.responsible_name || '-'}</td>
-                        <td className="p-2 text-center">{h.blood_pressure || '-'}</td>
-                        <td className="p-2 text-center">{h.spo2 || '-'}</td>
-                        <td className="p-2 text-center">{h.temperature || '-'}</td>
-                        <td className="p-2 text-center">{h.glucose || '-'}</td>
-                        <td className="p-2 text-center">{h.heart_rate || '-'}</td>
-                        <td className="p-2 text-center">{h.weight || '-'}</td>
-                        <td className="p-2 text-center">{h.nutrition_pct}%</td>
-                        <td className="p-2">{h.mood || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <ExportButtons contentRef={historyRef} title="Historial Bitácora 90 días"
-                  fileName="historial_bitacora_90d" textContent={getHistoryTextContent()}
-                  data={getHistoryTableData()} signatureDataUrl={null} showDrive={false} />
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       {/* Single Resident Report */}
       <div className="bg-card border-2 border-accent rounded-2xl p-6 mt-6">
         <h3 className="text-sm font-black text-foreground flex items-center gap-2 mb-4">
