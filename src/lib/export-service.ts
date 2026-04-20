@@ -2,27 +2,43 @@ import jsPDF from "jspdf";
 import { Document, Packer, Paragraph, TextRun, Header, Footer, ImageRun, AlignmentType, BorderStyle, Table, TableRow, TableCell, WidthType, PageNumber, HeadingLevel } from "docx";
 import { saveAs } from "file-saver";
 import logoImg from "@/assets/logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── Brand Constants ───
 export const BRAND = {
   name: "HOGAR BELÉN BUESACO S.A.S.",
   slogan: "Juntos, cuidamos mejor",
-  phone: "3117015258",
+  phone: "3117301245",
   email: "hogarbelen2022@gmail.com",
   web: "www.hogarbelen.org",
   social: "@hogarbelenbuesaco",
   nit: "NIT: 901.904.984-0",
   colorHex: "C8102E",
   colorRGB: [200, 16, 46] as [number, number, number],
-  footerText: "Cel: 3117015258 | Email: hogarbelen2022@gmail.com | Web: www.hogarbelen.org | Redes: @hogarbelenbuesaco",
+  footerText: "Cel: 3117301245 | Email: hogarbelen2022@gmail.com | Web: www.hogarbelen.org | Redes: @hogarbelenbuesaco",
 };
 
 // ─── Helpers ───
 let cachedLogoDataUrl: string | null = null;
 let cachedLogoBuffer: ArrayBuffer | null = null;
+let cachedDynamicLogoUrl: string | null = null;
+let logoLookupDone = false;
+
+async function getDynamicLogoUrl(): Promise<string | null> {
+  if (logoLookupDone) return cachedDynamicLogoUrl;
+  logoLookupDone = true;
+  try {
+    const { data } = await (supabase as any).from("system_settings").select("value").eq("key", "logo_url").maybeSingle();
+    if (data?.value && typeof data.value === "string") {
+      cachedDynamicLogoUrl = data.value;
+    }
+  } catch { /* fallback to bundled asset */ }
+  return cachedDynamicLogoUrl;
+}
 
 async function getLogoDataUrl(): Promise<string> {
   if (cachedLogoDataUrl) return cachedLogoDataUrl;
+  const dynamicUrl = await getDynamicLogoUrl();
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -34,20 +50,67 @@ async function getLogoDataUrl(): Promise<string> {
       cachedLogoDataUrl = c.toDataURL("image/png");
       resolve(cachedLogoDataUrl);
     };
-    img.onerror = () => resolve("");
-    img.src = logoImg;
+    img.onerror = () => {
+      // Fallback to bundled logo
+      const fb = new Image();
+      fb.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = fb.naturalWidth;
+        c.height = fb.naturalHeight;
+        c.getContext("2d")!.drawImage(fb, 0, 0);
+        cachedLogoDataUrl = c.toDataURL("image/png");
+        resolve(cachedLogoDataUrl);
+      };
+      fb.onerror = () => resolve("");
+      fb.src = logoImg;
+    };
+    img.src = dynamicUrl || logoImg;
   });
 }
 
 async function getLogoBuffer(): Promise<ArrayBuffer> {
   if (cachedLogoBuffer) return cachedLogoBuffer;
-  const resp = await fetch(logoImg);
-  cachedLogoBuffer = await resp.arrayBuffer();
-  return cachedLogoBuffer;
+  const dynamicUrl = await getDynamicLogoUrl();
+  try {
+    const resp = await fetch(dynamicUrl || logoImg);
+    cachedLogoBuffer = await resp.arrayBuffer();
+    return cachedLogoBuffer;
+  } catch {
+    const resp = await fetch(logoImg);
+    cachedLogoBuffer = await resp.arrayBuffer();
+    return cachedLogoBuffer;
+  }
 }
 
 function formatDate(): string {
   return new Date().toLocaleDateString("es-CO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
+function formatTime(): string {
+  return new Date().toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Strip markdown chars for plain rendering / split into segments with bold/italic flags
+type Segment = { text: string; bold?: boolean; italic?: boolean; heading?: 1 | 2 | 3 };
+function parseMarkdownLine(line: string): Segment[] {
+  const segments: Segment[] = [];
+  // Heading detection
+  const h = line.match(/^(#{1,3})\s+(.*)$/);
+  if (h) return [{ text: h[2], bold: true, heading: h[1].length as 1 | 2 | 3 }];
+
+  // Inline bold/italic
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(line)) !== null) {
+    if (m.index > last) segments.push({ text: line.slice(last, m.index) });
+    const tok = m[0];
+    if (tok.startsWith("**")) segments.push({ text: tok.slice(2, -2), bold: true });
+    else segments.push({ text: tok.slice(1, -1), italic: true });
+    last = m.index + tok.length;
+  }
+  if (last < line.length) segments.push({ text: line.slice(last) });
+  return segments.length ? segments : [{ text: line }];
 }
 
 // ─── PDF EXPORT ───
@@ -57,59 +120,59 @@ export async function exportPDF(opts: {
   fileName: string;
   textContent?: string;
   signatureDataUrl?: string | null;
+  responsibleName?: string;
+  responsibleRole?: string;
 }) {
   const { default: html2canvas } = await import("html2canvas");
   const pdf = new jsPDF("p", "mm", "letter");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 20; // 2 cm margins per institutional standard
   const contentW = pageW - margin * 2;
   const headerH = 28;
-  const footerH = 18;
+  const footerH = 20;
   const [r, g, b] = BRAND.colorRGB;
 
   const logoDataUrl = await getLogoDataUrl();
 
   const drawHeader = (page: number) => {
-    // Red band
     pdf.setFillColor(r, g, b);
     pdf.rect(0, 0, pageW, headerH, "F");
-    // Logo
     if (logoDataUrl) {
       try { pdf.addImage(logoDataUrl, "PNG", margin, 2, 24, 24); } catch {}
     }
-    // Title
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(255, 255, 255);
     pdf.text(BRAND.name, margin + 28, 12);
-    // Slogan
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "italic");
     pdf.text(BRAND.slogan, margin + 28, 19);
-    // Date on first page
     if (page === 0) {
       pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
       pdf.text(formatDate(), pageW - margin, 25, { align: "right" });
     }
+    pdf.setDrawColor(r, g, b);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin, headerH + 1, pageW - margin, headerH + 1);
   };
 
   const drawFooter = (pageNum: number, totalPages: number) => {
     const y = pageH - footerH;
-    // Red wave band
     pdf.setFillColor(r, g, b);
     pdf.rect(0, y, pageW, footerH, "F");
-    // Contact info
     pdf.setFontSize(6);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(255, 255, 255);
-    pdf.text(BRAND.footerText, pageW / 2, y + 6, { align: "center" });
-    pdf.text(BRAND.nit, pageW / 2, y + 10, { align: "center" });
-    pdf.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, y + 14, { align: "center" });
+    if (opts.responsibleName) {
+      pdf.text(`Registrado por: ${opts.responsibleName}${opts.responsibleRole ? ` (${opts.responsibleRole})` : ""} | Fecha: ${new Date().toLocaleDateString("es-CO")} | Hora: ${formatTime()}`, pageW / 2, y + 5, { align: "center" });
+    }
+    pdf.text(BRAND.footerText, pageW / 2, y + 9, { align: "center" });
+    pdf.text(BRAND.nit, pageW / 2, y + 13, { align: "center" });
+    pdf.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, y + 17, { align: "center" });
   };
 
-  // Render content
   if (opts.contentRef?.current) {
     const canvas = await html2canvas(opts.contentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
     const imgData = canvas.toDataURL("image/png");
@@ -128,7 +191,6 @@ export async function exportPDF(opts: {
     } else {
       let yOffset = 0;
       let page = 0;
-      const pages: string[] = [];
       while (yOffset < imgH) {
         if (page > 0) pdf.addPage();
         drawHeader(page);
@@ -140,9 +202,7 @@ export async function exportPDF(opts: {
         pdf.addImage(tc.toDataURL("image/png"), "PNG", margin, headerH + 4, contentW, sliceH * ratio);
         yOffset += sliceH;
         page++;
-        pages.push("x");
       }
-      // Add signature on last page
       if (opts.signatureDataUrl) {
         try { pdf.addImage(opts.signatureDataUrl, "PNG", margin, headerH + 4 + (imgH - Math.floor(yOffset - (maxContentH / ratio))) * ratio + 4, 40, 20); } catch {}
       }
@@ -153,36 +213,81 @@ export async function exportPDF(opts: {
       }
     }
   } else if (opts.textContent) {
-    // Text-based PDF
     drawHeader(0);
-    pdf.setFontSize(12);
+    pdf.setFontSize(13);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(200, 16, 46);
+    pdf.setTextColor(r, g, b);
     pdf.text(opts.title, margin, headerH + 10);
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
-    const lines = pdf.splitTextToSize(opts.textContent, contentW);
     let y = headerH + 18;
-    const maxY = pageH - footerH - 5;
+    const maxY = pageH - footerH - 8;
     let pageCount = 1;
-    for (const line of lines) {
-      if (y > maxY) {
-        drawFooter(pageCount, 0);
-        pdf.addPage();
-        pageCount++;
-        drawHeader(pageCount - 1);
-        y = headerH + 10;
+
+    const writeSegments = (segments: Segment[]) => {
+      const head = segments[0]?.heading;
+      if (head) {
+        const size = head === 1 ? 13 : head === 2 ? 11 : 10;
+        pdf.setFontSize(size);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(r, g, b);
+        const lines = pdf.splitTextToSize(segments[0].text, contentW);
+        for (const ln of lines) {
+          if (y > maxY) { drawFooter(pageCount, 0); pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+          pdf.text(ln, margin, y);
+          y += size === 13 ? 7 : size === 11 ? 6 : 5;
+        }
+        y += 1;
+        return;
       }
-      pdf.text(line, margin, y);
-      y += 4.5;
+      pdf.setFontSize(10);
+      pdf.setTextColor(40, 40, 40);
+      let cursorX = margin;
+      const lineH = 5;
+      for (const seg of segments) {
+        const style = seg.bold && seg.italic ? "bolditalic" : seg.bold ? "bold" : seg.italic ? "italic" : "normal";
+        pdf.setFont("helvetica", style);
+        const words = seg.text.split(/(\s+)/);
+        for (const w of words) {
+          if (!w) continue;
+          const wWidth = pdf.getTextWidth(w);
+          if (cursorX + wWidth > pageW - margin) {
+            y += lineH;
+            cursorX = margin;
+            if (y > maxY) { drawFooter(pageCount, 0); pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+          }
+          pdf.text(w, cursorX, y);
+          cursorX += wWidth;
+        }
+      }
+      y += lineH + 1;
+    };
+
+    for (const rawLine of opts.textContent.split("\n")) {
+      if (!rawLine.trim()) { y += 3; continue; }
+      const segments = parseMarkdownLine(rawLine);
+      writeSegments(segments);
     }
+
     if (opts.signatureDataUrl) {
-      if (y + 24 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+      if (y + 28 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
       pdf.setFontSize(8);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(40, 40, 40);
       pdf.text("Firma del Responsable:", margin, y + 4);
       try { pdf.addImage(opts.signatureDataUrl, "PNG", margin, y + 6, 40, 20); } catch {}
+      y += 32;
     }
+
+    if (opts.responsibleName) {
+      if (y + 10 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(r, g, b);
+      pdf.text(`Firmado por: ${opts.responsibleName}${opts.responsibleRole ? ` — ${opts.responsibleRole}` : ""}`, margin, y + 4);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Fecha: ${new Date().toLocaleDateString("es-CO")} | Hora: ${formatTime()}`, margin, y + 9);
+    }
+
     const total = pdf.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
       pdf.setPage(i);
@@ -200,63 +305,41 @@ export async function exportWord(opts: {
   textContent?: string;
   data?: Record<string, any>[] | null;
   signatureDataUrl?: string | null;
+  responsibleName?: string;
+  responsibleRole?: string;
 }) {
   const logoBuffer = await getLogoBuffer();
   const content = opts.textContent || "";
 
   const headerChildren: (Paragraph)[] = [
-    new Paragraph({
-      children: [
-        new ImageRun({ data: logoBuffer, transformation: { width: 80, height: 80 }, type: "png", altText: { title: "Logo", description: "Logo Hogar Belén", name: "logo" } }),
-      ],
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: BRAND.name, bold: true, size: 28, color: BRAND.colorHex, font: "Arial" }),
-      ],
-      alignment: AlignmentType.LEFT,
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: BRAND.slogan, italics: true, size: 20, color: "555555", font: "Arial" }),
-      ],
-      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: BRAND.colorHex, space: 4 } },
-    }),
+    new Paragraph({ children: [new ImageRun({ data: logoBuffer, transformation: { width: 80, height: 80 }, type: "png", altText: { title: "Logo", description: "Logo Hogar Belén", name: "logo" } })] }),
+    new Paragraph({ children: [new TextRun({ text: BRAND.name, bold: true, size: 28, color: BRAND.colorHex, font: "Arial" })], alignment: AlignmentType.LEFT }),
+    new Paragraph({ children: [new TextRun({ text: BRAND.slogan, italics: true, size: 20, color: "333333", font: "Arial" })], border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: BRAND.colorHex, space: 4 } } }),
   ];
 
-  const footerChildren: Paragraph[] = [
-    new Paragraph({
-      children: [
-        new TextRun({ text: BRAND.footerText, size: 14, color: "666666", font: "Arial" }),
-      ],
+  const footerChildren: Paragraph[] = [];
+  if (opts.responsibleName) {
+    footerChildren.push(new Paragraph({
+      children: [new TextRun({ text: `Registrado por: ${opts.responsibleName}${opts.responsibleRole ? ` (${opts.responsibleRole})` : ""} | Fecha: ${new Date().toLocaleDateString("es-CO")} | Hora: ${formatTime()}`, size: 14, color: "555555", font: "Arial", bold: true })],
       alignment: AlignmentType.CENTER,
-      border: { top: { style: BorderStyle.SINGLE, size: 4, color: BRAND.colorHex, space: 4 } },
-    }),
-    new Paragraph({
-      children: [
-        new TextRun({ text: BRAND.nit + "  |  ", size: 12, color: "999999", font: "Arial" }),
-        new TextRun({ text: "Página ", size: 12, color: "999999", font: "Arial" }),
-        new TextRun({ children: [PageNumber.CURRENT], size: 12, color: "999999", font: "Arial" }),
-        new TextRun({ text: " de ", size: 12, color: "999999", font: "Arial" }),
-        new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 12, color: "999999", font: "Arial" }),
-      ],
-      alignment: AlignmentType.CENTER,
-    }),
+    }));
+  }
+  footerChildren.push(
+    new Paragraph({ children: [new TextRun({ text: BRAND.footerText, size: 14, color: "666666", font: "Arial" })], alignment: AlignmentType.CENTER, border: { top: { style: BorderStyle.SINGLE, size: 4, color: BRAND.colorHex, space: 4 } } }),
+    new Paragraph({ children: [
+      new TextRun({ text: BRAND.nit + "  |  ", size: 12, color: "999999", font: "Arial" }),
+      new TextRun({ text: "Página ", size: 12, color: "999999", font: "Arial" }),
+      new TextRun({ children: [PageNumber.CURRENT], size: 12, color: "999999", font: "Arial" }),
+      new TextRun({ text: " de ", size: 12, color: "999999", font: "Arial" }),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 12, color: "999999", font: "Arial" }),
+    ], alignment: AlignmentType.CENTER }),
+  );
+
+  const bodyChildren: (Paragraph | Table)[] = [
+    new Paragraph({ children: [new TextRun({ text: opts.title, bold: true, size: 28, color: BRAND.colorHex, font: "Arial" })], heading: HeadingLevel.HEADING_1, spacing: { after: 200 } }),
+    new Paragraph({ children: [new TextRun({ text: `Fecha: ${formatDate()}`, size: 20, color: "666666", font: "Arial" })], spacing: { after: 300 } }),
   ];
 
-  const bodyChildren: Paragraph[] = [
-    new Paragraph({
-      children: [new TextRun({ text: opts.title, bold: true, size: 28, color: BRAND.colorHex, font: "Arial" })],
-      heading: HeadingLevel.HEADING_1,
-      spacing: { after: 200 },
-    }),
-    new Paragraph({
-      children: [new TextRun({ text: `Fecha: ${formatDate()}`, size: 20, color: "666666", font: "Arial" })],
-      spacing: { after: 300 },
-    }),
-  ];
-
-  // Build table if data provided
   if (opts.data && opts.data.length > 0) {
     const keys = Object.keys(opts.data[0]);
     const headerRow = new TableRow({
@@ -274,16 +357,27 @@ export async function exportWord(opts: {
       })),
     }));
     bodyChildren.push(new Paragraph({ spacing: { after: 100 }, children: [] }));
-    const table = new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      rows: [headerRow, ...dataRows],
-    });
-    bodyChildren.push(table as any);
+    bodyChildren.push(new Table({ width: { size: 9360, type: WidthType.DXA }, rows: [headerRow, ...dataRows] }));
   } else if (content) {
-    content.split("\n").filter(l => l.trim()).forEach(line => {
+    content.split("\n").forEach(line => {
+      if (!line.trim()) {
+        bodyChildren.push(new Paragraph({ children: [new TextRun({ text: "", size: 22, font: "Arial" })], spacing: { after: 80 } }));
+        return;
+      }
+      const segments = parseMarkdownLine(line);
+      const head = segments[0]?.heading;
+      if (head) {
+        const size = head === 1 ? 28 : head === 2 ? 24 : 22;
+        bodyChildren.push(new Paragraph({
+          children: [new TextRun({ text: segments[0].text, bold: true, size, color: BRAND.colorHex, font: "Arial" })],
+          heading: head === 1 ? HeadingLevel.HEADING_1 : head === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
+          spacing: { before: 200, after: 120 },
+        }));
+        return;
+      }
       bodyChildren.push(new Paragraph({
-        children: [new TextRun({ text: line, size: 22, font: "Arial" })],
-        spacing: { after: 120, line: 276 },
+        children: segments.map(seg => new TextRun({ text: seg.text, bold: seg.bold, italics: seg.italic, size: 22, font: "Arial", color: seg.bold ? "1A1A1A" : "333333" })),
+        spacing: { after: 120, line: 300 },
       }));
     });
   }
@@ -316,7 +410,7 @@ export async function exportWord(opts: {
           margin: { top: 1800, right: 1440, bottom: 1440, left: 1440 },
         },
       },
-      children: bodyChildren,
+      children: bodyChildren as any,
     }],
   });
 
