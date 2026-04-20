@@ -120,59 +120,59 @@ export async function exportPDF(opts: {
   fileName: string;
   textContent?: string;
   signatureDataUrl?: string | null;
+  responsibleName?: string;
+  responsibleRole?: string;
 }) {
   const { default: html2canvas } = await import("html2canvas");
   const pdf = new jsPDF("p", "mm", "letter");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 20; // 2 cm margins per institutional standard
   const contentW = pageW - margin * 2;
   const headerH = 28;
-  const footerH = 18;
+  const footerH = 20;
   const [r, g, b] = BRAND.colorRGB;
 
   const logoDataUrl = await getLogoDataUrl();
 
   const drawHeader = (page: number) => {
-    // Red band
     pdf.setFillColor(r, g, b);
     pdf.rect(0, 0, pageW, headerH, "F");
-    // Logo
     if (logoDataUrl) {
       try { pdf.addImage(logoDataUrl, "PNG", margin, 2, 24, 24); } catch {}
     }
-    // Title
     pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.setTextColor(255, 255, 255);
     pdf.text(BRAND.name, margin + 28, 12);
-    // Slogan
     pdf.setFontSize(9);
     pdf.setFont("helvetica", "italic");
     pdf.text(BRAND.slogan, margin + 28, 19);
-    // Date on first page
     if (page === 0) {
       pdf.setFontSize(7);
       pdf.setFont("helvetica", "normal");
       pdf.text(formatDate(), pageW - margin, 25, { align: "right" });
     }
+    pdf.setDrawColor(r, g, b);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin, headerH + 1, pageW - margin, headerH + 1);
   };
 
   const drawFooter = (pageNum: number, totalPages: number) => {
     const y = pageH - footerH;
-    // Red wave band
     pdf.setFillColor(r, g, b);
     pdf.rect(0, y, pageW, footerH, "F");
-    // Contact info
     pdf.setFontSize(6);
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(255, 255, 255);
-    pdf.text(BRAND.footerText, pageW / 2, y + 6, { align: "center" });
-    pdf.text(BRAND.nit, pageW / 2, y + 10, { align: "center" });
-    pdf.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, y + 14, { align: "center" });
+    if (opts.responsibleName) {
+      pdf.text(`Registrado por: ${opts.responsibleName}${opts.responsibleRole ? ` (${opts.responsibleRole})` : ""} | Fecha: ${new Date().toLocaleDateString("es-CO")} | Hora: ${formatTime()}`, pageW / 2, y + 5, { align: "center" });
+    }
+    pdf.text(BRAND.footerText, pageW / 2, y + 9, { align: "center" });
+    pdf.text(BRAND.nit, pageW / 2, y + 13, { align: "center" });
+    pdf.text(`Página ${pageNum} de ${totalPages}`, pageW / 2, y + 17, { align: "center" });
   };
 
-  // Render content
   if (opts.contentRef?.current) {
     const canvas = await html2canvas(opts.contentRef.current, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
     const imgData = canvas.toDataURL("image/png");
@@ -191,7 +191,6 @@ export async function exportPDF(opts: {
     } else {
       let yOffset = 0;
       let page = 0;
-      const pages: string[] = [];
       while (yOffset < imgH) {
         if (page > 0) pdf.addPage();
         drawHeader(page);
@@ -203,9 +202,7 @@ export async function exportPDF(opts: {
         pdf.addImage(tc.toDataURL("image/png"), "PNG", margin, headerH + 4, contentW, sliceH * ratio);
         yOffset += sliceH;
         page++;
-        pages.push("x");
       }
-      // Add signature on last page
       if (opts.signatureDataUrl) {
         try { pdf.addImage(opts.signatureDataUrl, "PNG", margin, headerH + 4 + (imgH - Math.floor(yOffset - (maxContentH / ratio))) * ratio + 4, 40, 20); } catch {}
       }
@@ -216,36 +213,81 @@ export async function exportPDF(opts: {
       }
     }
   } else if (opts.textContent) {
-    // Text-based PDF
     drawHeader(0);
-    pdf.setFontSize(12);
+    pdf.setFontSize(13);
     pdf.setFont("helvetica", "bold");
-    pdf.setTextColor(200, 16, 46);
+    pdf.setTextColor(r, g, b);
     pdf.text(opts.title, margin, headerH + 10);
-    pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
-    pdf.setTextColor(0, 0, 0);
-    const lines = pdf.splitTextToSize(opts.textContent, contentW);
     let y = headerH + 18;
-    const maxY = pageH - footerH - 5;
+    const maxY = pageH - footerH - 8;
     let pageCount = 1;
-    for (const line of lines) {
-      if (y > maxY) {
-        drawFooter(pageCount, 0);
-        pdf.addPage();
-        pageCount++;
-        drawHeader(pageCount - 1);
-        y = headerH + 10;
+
+    const writeSegments = (segments: Segment[]) => {
+      const head = segments[0]?.heading;
+      if (head) {
+        const size = head === 1 ? 13 : head === 2 ? 11 : 10;
+        pdf.setFontSize(size);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(r, g, b);
+        const lines = pdf.splitTextToSize(segments[0].text, contentW);
+        for (const ln of lines) {
+          if (y > maxY) { drawFooter(pageCount, 0); pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+          pdf.text(ln, margin, y);
+          y += size === 13 ? 7 : size === 11 ? 6 : 5;
+        }
+        y += 1;
+        return;
       }
-      pdf.text(line, margin, y);
-      y += 4.5;
+      pdf.setFontSize(10);
+      pdf.setTextColor(40, 40, 40);
+      let cursorX = margin;
+      const lineH = 5;
+      for (const seg of segments) {
+        const style = seg.bold && seg.italic ? "bolditalic" : seg.bold ? "bold" : seg.italic ? "italic" : "normal";
+        pdf.setFont("helvetica", style);
+        const words = seg.text.split(/(\s+)/);
+        for (const w of words) {
+          if (!w) continue;
+          const wWidth = pdf.getTextWidth(w);
+          if (cursorX + wWidth > pageW - margin) {
+            y += lineH;
+            cursorX = margin;
+            if (y > maxY) { drawFooter(pageCount, 0); pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+          }
+          pdf.text(w, cursorX, y);
+          cursorX += wWidth;
+        }
+      }
+      y += lineH + 1;
+    };
+
+    for (const rawLine of opts.textContent.split("\n")) {
+      if (!rawLine.trim()) { y += 3; continue; }
+      const segments = parseMarkdownLine(rawLine);
+      writeSegments(segments);
     }
+
     if (opts.signatureDataUrl) {
-      if (y + 24 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+      if (y + 28 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
       pdf.setFontSize(8);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(40, 40, 40);
       pdf.text("Firma del Responsable:", margin, y + 4);
       try { pdf.addImage(opts.signatureDataUrl, "PNG", margin, y + 6, 40, 20); } catch {}
+      y += 32;
     }
+
+    if (opts.responsibleName) {
+      if (y + 10 > maxY) { pdf.addPage(); pageCount++; drawHeader(pageCount - 1); y = headerH + 10; }
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(r, g, b);
+      pdf.text(`Firmado por: ${opts.responsibleName}${opts.responsibleRole ? ` — ${opts.responsibleRole}` : ""}`, margin, y + 4);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`Fecha: ${new Date().toLocaleDateString("es-CO")} | Hora: ${formatTime()}`, margin, y + 9);
+    }
+
     const total = pdf.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
       pdf.setPage(i);
