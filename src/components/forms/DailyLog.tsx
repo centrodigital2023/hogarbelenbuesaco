@@ -398,7 +398,17 @@ const DailyLog = ({ onBack }: Props) => {
         <ShareButtons title={`HB-F4 Bitácora ${logDate}`} text={getTextContent()} />
       </div>
 
-      <SmartReportSection module="salud" formTitle="HB-F4: Bitácora Diaria" formData={entries} contentRef={contentRef} />
+      <SmartReportSection
+        module="salud"
+        formTitle="HB-F4: Bitácora Diaria"
+        formData={{ entries, shift, log_date: logDate, responsible_name: responsibleName, responsible_role: responsibleRole }}
+        contentRef={contentRef}
+        responsibleName={responsibleName}
+        responsibleRole={responsibleRole}
+        dateFrom={logDate}
+        dateTo={logDate}
+        reportType="grupal"
+      />
       <ActionButtons onFinish={handleSave} disabled={saving || Object.keys(entries).length === 0} />
 
       {/* Single Resident Report */}

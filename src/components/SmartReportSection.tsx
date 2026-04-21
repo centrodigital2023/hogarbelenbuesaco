@@ -13,6 +13,11 @@ interface SmartReportSectionProps {
   residentName?: string;
   formData?: Record<string, any>;
   contentRef: React.RefObject<HTMLDivElement>;
+  responsibleName?: string;
+  responsibleRole?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  reportType?: "individual" | "grupal" | "consolidado";
 }
 
 interface HistoryEntry {
@@ -22,7 +27,7 @@ interface HistoryEntry {
   signature: string | null;
 }
 
-const SmartReportSection = ({ module, formTitle, residentId, residentName, formData, contentRef }: SmartReportSectionProps) => {
+const SmartReportSection = ({ module, formTitle, residentId, residentName, formData, contentRef, responsibleName, responsibleRole, dateFrom, dateTo, reportType }: SmartReportSectionProps) => {
   const { toast } = useToast();
   const [report, setReport] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -51,7 +56,15 @@ const SmartReportSection = ({ module, formTitle, residentId, residentName, formD
           Authorization: `Bearer ${session.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ module, formTitle, residentId, formData }),
+        body: JSON.stringify({
+          module,
+          formTitle,
+          residentId,
+          formData: { ...formData, responsible_name: responsibleName || formData?.responsible_name, responsible_role: responsibleRole || formData?.responsible_role },
+          dateFrom,
+          dateTo,
+          reportType: reportType || (residentId ? "individual" : "grupal"),
+        }),
       });
 
       if (!resp.ok) {
@@ -182,6 +195,8 @@ const SmartReportSection = ({ module, formTitle, residentId, residentName, formD
               fileName={`${module}_${residentName || "informe"}_${new Date().toISOString().split("T")[0]}`}
               textContent={getReportText()}
               signatureDataUrl={signature}
+              responsibleName={responsibleName}
+              responsibleRole={responsibleRole}
             />
             <ShareButtons title={`${formTitle} ${residentName || ""}`} text={getReportText()} />
             <button onClick={saveToHistory}
