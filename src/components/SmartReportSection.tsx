@@ -13,6 +13,11 @@ interface SmartReportSectionProps {
   residentName?: string;
   formData?: Record<string, any>;
   contentRef: React.RefObject<HTMLDivElement>;
+  responsibleName?: string;
+  responsibleRole?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  reportType?: "individual" | "grupal" | "consolidado";
 }
 
 interface HistoryEntry {
