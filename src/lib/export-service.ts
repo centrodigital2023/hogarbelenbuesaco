@@ -114,6 +114,8 @@ function parseMarkdownLine(line: string): Segment[] {
 }
 
 // ─── PDF EXPORT ───
+// El PDF SIEMPRE se genera a partir del MISMO contenido textual del Word
+// (no es una captura visual de la plataforma). Garantiza paridad 1:1 con el .docx.
 export async function exportPDF(opts: {
   contentRef?: React.RefObject<HTMLDivElement>;
   title: string;
@@ -123,7 +125,6 @@ export async function exportPDF(opts: {
   responsibleName?: string;
   responsibleRole?: string;
 }) {
-  const { default: html2canvas } = await import("html2canvas");
   const pdf = new jsPDF("p", "mm", "letter");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
