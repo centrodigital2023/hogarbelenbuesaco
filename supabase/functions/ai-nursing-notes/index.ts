@@ -48,11 +48,8 @@ serve(async (req) => {
     // ===== END AUTH CHECK =====
 
     const body = await req.json();
-    const { residentId, dateFrom, dateTo, shift, isConsolidated } = body;
+    const { residentId, dateFrom, dateTo, shift, isConsolidated, liveEntry, responsibleName, responsibleRole } = body;
     // Determinar tipo de nota: individual | grupal | consolidado
-    // - individual: un residente, un día/turno
-    // - grupal: todos los residentes en un turno/día
-    // - consolidado: un residente en un rango de fechas (evolución)
     const isRangeReport = dateFrom !== dateTo;
     const noteType: "individual" | "grupal" | "consolidado" =
       isConsolidated && !residentId ? "grupal"
