@@ -164,6 +164,28 @@ const NursingReport = ({ onBack }: Props) => {
             )}
           </div>
 
+          {/* Responsable + Firma */}
+          <div className="bg-card border border-border rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <input
+                placeholder="Nombre del responsable"
+                value={responsibleName}
+                onChange={e => setResponsibleName(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm"
+              />
+              <input
+                placeholder="Cargo / Rol"
+                value={responsibleRole}
+                onChange={e => setResponsibleRole(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Firma digital</p>
+              <SignaturePad label="Firma" value={signature || undefined} onChange={setSignature} />
+            </div>
+          </div>
+
           {/* Export & Share — always available for re-export after editing */}
           <div className="flex flex-wrap items-center gap-3">
             <ExportButtons
@@ -171,6 +193,9 @@ const NursingReport = ({ onBack }: Props) => {
               title={`Informe Enfermería ${dateFrom} a ${dateTo}`}
               fileName={`informe_enfermeria_${dateFrom}_${dateTo}`}
               textContent={getReportText()}
+              signatureDataUrl={signature}
+              responsibleName={responsibleName}
+              responsibleRole={responsibleRole}
             />
             <ShareButtons title={`Informe Enfermería ${dateFrom} a ${dateTo}`} text={getReportText()} />
           </div>
