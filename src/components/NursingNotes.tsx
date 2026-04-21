@@ -26,6 +26,9 @@ const NursingNotes = ({ onBack }: Props) => {
   const [history, setHistory] = useState<any[]>([]);
   const [isConsolidated, setIsConsolidated] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [responsibleName, setResponsibleName] = useState("");
+  const [responsibleRole, setResponsibleRole] = useState("");
 
   useEffect(() => {
     supabase.from('residents').select('id, full_name').in('status', ['prueba', 'permanente'])
