@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import FormHeader from "@/components/FormHeader";
 import ExportButtons from "@/components/ExportButtons";
+import SignaturePad from "@/components/SignaturePad";
 import { Sparkles, Loader2, Save, Calendar, ChevronDown, ChevronUp, Share2, Mail, MessageCircle } from "lucide-react";
 
 interface Props { onBack: () => void; }
