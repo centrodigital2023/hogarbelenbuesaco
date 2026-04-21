@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import FormHeader from "@/components/FormHeader";
 import ExportButtons from "@/components/ExportButtons";
 import ShareButtons from "@/components/ShareButtons";
+import SignaturePad from "@/components/SignaturePad";
 import { Sparkles, Loader2, Calendar, BarChart3, Users, HeartPulse, AlertTriangle, Pill, Pencil, Save } from "lucide-react";
 
 interface Props { onBack: () => void; }
