@@ -49,6 +49,15 @@ serve(async (req) => {
 
     const body = await req.json();
     const { residentId, dateFrom, dateTo, shift, isConsolidated } = body;
+    // Determinar tipo de nota: individual | grupal | consolidado
+    // - individual: un residente, un día/turno
+    // - grupal: todos los residentes en un turno/día
+    // - consolidado: un residente en un rango de fechas (evolución)
+    const isRangeReport = dateFrom !== dateTo;
+    const noteType: "individual" | "grupal" | "consolidado" =
+      isConsolidated && !residentId ? "grupal"
+      : residentId && isRangeReport ? "consolidado"
+      : "individual";
 
     // ===== INPUT VALIDATION =====
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -86,6 +95,20 @@ serve(async (req) => {
       return new Response(JSON.stringify({ note: null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Medicamentos administrados (contexto)
+    let medQuery = serviceClient.from("medication_admin")
+      .select("admin_datetime, was_administered, skip_reason, medications(medication_name, dose), residents(full_name)")
+      .gte("admin_datetime", `${dateFrom}T00:00:00`).lte("admin_datetime", `${dateTo}T23:59:59`);
+    if (residentId && noteType !== "grupal") medQuery = medQuery.eq("resident_id", residentId);
+    const { data: medications } = await medQuery;
+
+    // Citas médicas (contexto)
+    let apptQuery = serviceClient.from("medical_appointments")
+      .select("appointment_date, specialty, location, was_attended, residents(full_name)")
+      .gte("appointment_date", dateFrom).lte("appointment_date", dateTo);
+    if (residentId && noteType !== "grupal") apptQuery = apptQuery.eq("resident_id", residentId);
+    const { data: appointments } = await apptQuery;
+
     let prevQuery = serviceClient.from("nursing_notes").select("note").order("created_at", { ascending: false }).limit(3);
     if (!isConsolidated && residentId) prevQuery = prevQuery.eq("resident_id", residentId);
     const { data: prevNotes } = await prevQuery;
@@ -102,54 +125,63 @@ serve(async (req) => {
       `${i.incident_datetime}: ${i.residents?.full_name} - Tipo:${i.incident_type}, Desc:${i.description}`
     ).join("\n");
 
+    const medText = (medications || []).slice(0, 50).map((m: any) =>
+      `${m.admin_datetime}: ${m.residents?.full_name || ''} - ${m.medications?.medication_name || ''} (${m.medications?.dose || ''}) ${m.was_administered ? '✓ Administrado' : `✗ Omitido${m.skip_reason ? ': '+m.skip_reason : ''}`}`
+    ).join("\n");
+
+    const apptText = (appointments || []).map((a: any) =>
+      `${a.appointment_date}: ${a.residents?.full_name || ''} - ${a.specialty || ''} en ${a.location || 'N/A'} ${a.was_attended ? '(Asistió)' : '(Pendiente)'}`
+    ).join("\n");
+
     const prevText = (prevNotes || []).map((n: any) => n.note).join("\n---\n");
 
-    const residentName = isConsolidated ? "TODOS los residentes" : (logs?.[0]?.residents?.full_name || vitals?.[0]?.residents?.full_name || "el/la residente");
+    const residentName = noteType === "grupal"
+      ? "TODOS los residentes del turno"
+      : (logs?.[0]?.residents?.full_name || vitals?.[0]?.residents?.full_name || "el/la residente");
 
-    const systemPrompt = `Eres una enfermera clínica con más de 15 años de experiencia en cuidado de pacientes adultos mayores en el Hogar Belén, centro geriátrico en Buesaco, Colombia. Redactas notas de enfermería profesionales, objetivas, claras y detalladas, siguiendo estándares de documentación clínica.
+    // ===== PROMPTS MAESTROS (según Manual de Implementación Técnica - Belén Gestión) =====
+    const baseSystem = `Actúas como enfermera clínica del **Hogar Belén Buesaco S.A.S.** (Buesaco, Nariño), con más de 15 años de experiencia en cuidado del adulto mayor. Lema institucional: *"Juntos, cuidamos mejor"*.
 
-La bitácora se llama **HB-F4: Bitácora Diaria - Registro por turnos de indicadores de salud y bienestar**.
+**Estilo obligatorio:** texto fluido, respetuoso, cálido y profesional ("hipnótico" — que transmita calma y confianza). Resalta en **negrita** los hitos clínicos relevantes y en *cursiva* las expresiones de confort y bienestar. Usa Markdown.
 
-Debes generar **solo la Nota de Enfermería** (nunca el formato completo de la bitácora), pero la nota debe estar lista para copiarse directamente en la sección "Nota de Enfermería" de la bitácora.
+**Datos clínicos disponibles** (úsalos con valores EXACTOS, NO inventes):
+- **Signos Vitales:** T.A., SpO2, Temp, Glucemia, FC, Peso, Notas SV
+- **Bienestar:** Nutrición (%), Hidratación (vasos), Eliminación (Continente/Incontinente/Estreñimiento/Normal/Diarrea)
+- **Estado de Ánimo:** 😊 Alegre / 😌 Tranquilo / 😰 Ansioso / 😢 Triste / 😤 Agitado / 😶 Apático
+- **Novedades:** medicamentos administrados, terapias, actividades, citas médicas e incidentes (HB-F20)
 
-**Reglas estrictas para cada generación:**
+**Cierre obligatorio** (al final del texto):
+> Nota generada por IA — Hogar Belén Buesaco S.A.S.
+> Registrado por: [responsable del turno] | Fecha: [DD/MM/AAAA] | Hora: [HH:MM]`;
 
-- La nota debe ser **100% original y completamente diferente** a cualquier nota anterior (cambia estructura, orden de ideas, vocabulario y enfoque).
-- Usa lenguaje profesional de enfermería, preciso y fluido.
-- Incluye siempre los indicadores proporcionados con los valores EXACTOS de los datos:
-  - Nutrición: expresar como porcentaje (0%/25%/50%/75%/100%)
-  - Hidratación: número de vasos o descripción (buena/regular/deficiente)
-  - Eliminación: Continente / Incontinente / Estreñimiento / Normal / Diarrea
-  - Ánimo: 😊 Alegre / 😌 Tranquilo / 😰 Ansioso / 😢 Triste / 😤 Agitado / 😶 Apático
-- Describe las novedades del turno de forma realista y coherente basándote en los datos proporcionados.
-- Incluye observaciones clínicas relevantes, intervenciones realizadas, respuesta del paciente, signos vitales si están disponibles, y nivel de colaboración.
+    let promptByType = "";
+    if (noteType === "individual") {
+      promptByType = `**TIPO: NOTA INDIVIDUAL**
 
-- Estructura sugerida (pero varíala cada vez):
-  1. Valoración general al inicio del turno
-  2. Estado nutricional e hidratación
-  3. Patrón de eliminación
-  4. Estado emocional y ánimo
-  5. Novedades relevantes y actividades realizadas
-  6. Intervenciones de enfermería y respuesta
-  7. Plan o recomendaciones para el siguiente turno
+Redacta una nota para **${residentName}**. Basado en sus signos vitales y su ánimo, narra una jornada de bienestar. Menciona la nutrición al X% y la administración de medicamentos con un tono dulce y profesional. Resalta en **negrita** los hitos clínicos y en *cursiva* el confort y la calidez del cuidado.
 
-- No inventes información que no esté en los datos proporcionados.
-- Escribe en primera persona profesional.
-- Máximo 500 palabras.
-- Si hay notas anteriores proporcionadas, asegúrate de que tu nota sea completamente diferente en estructura, vocabulario y estilo.
+Estructura sugerida (adáptala con naturalidad, máximo 450 palabras):
+1. *Apertura cálida* con valoración general
+2. **Signos vitales** del turno
+3. **Nutrición e hidratación** (porcentaje exacto)
+4. Patrón de **eliminación** y **estado de ánimo**
+5. **Medicamentos**, terapias y actividades realizadas
+6. Citas médicas o incidentes (si aplica)
+7. *Recomendación* breve para el siguiente turno`;
+    } else if (noteType === "grupal") {
+      promptByType = `**TIPO: NOTA GRUPAL DE TURNO**
 
-**Formato de salida:**
-Comienza directamente con la nota. Al final escribe:
+Sintetiza la actividad de la unidad durante el turno **${shift}** del **${dateFrom}**. Describe cómo el grupo de residentes mantuvo la **estabilidad clínica** y participó en las actividades del día. Usa un lenguaje que transmita *paz* y **seguridad clínica**, evitando enumerar residente por residente; en su lugar resalta tendencias colectivas (nutrición promedio, ánimo predominante, eventos relevantes). Máximo 500 palabras.`;
+    } else {
+      promptByType = `**TIPO: NOTA CONSOLIDADA / EVOLUCIÓN**
 
-Nota de Enfermería - [Nombre del paciente]
-[Fecha y Turno: Mañana (7-12) / Día (7-18) / Noche (18-7)]
-Enfermera: Generada por IA - Hogar Belén`;
+Agrupa las novedades de **${residentName}** desde el **${dateFrom}** hasta el **${dateTo}**. Crea un relato coherente de la **evolución del residente**, resaltando su *recuperación*, sus avances y la **constancia del cuidado** brindado por el equipo. Integra signos vitales (tendencias), adherencia a medicamentos, citas médicas asistidas e incidentes. Cierra con una *proyección esperanzadora*. Máximo 600 palabras.`;
+    }
 
-    const userPrompt = `Genera una nota de enfermería para el período ${dateFrom} al ${dateTo}.
+    const systemPrompt = `${baseSystem}\n\n${promptByType}`;
 
+    const userPrompt = `Datos del período ${dateFrom} → ${dateTo} | Turno: ${shift || 'N/A'} | Tipo: ${noteType.toUpperCase()}
 Paciente: ${residentName}
-Turno: ${shift}
-Fecha: ${dateFrom}
 
 DATOS DE BITÁCORA (HB-F4):
 ${logsText || "Sin datos de bitácora"}
@@ -157,15 +189,19 @@ ${logsText || "Sin datos de bitácora"}
 SIGNOS VITALES:
 ${vitalsText || "Sin signos vitales registrados"}
 
-INCIDENTES:
+INCIDENTES (HB-F20):
 ${incText || "Sin incidentes"}
 
-NOTAS ANTERIORES (evitar repetir estilo y estructura):
+ADMINISTRACIÓN DE MEDICAMENTOS:
+${medText || "Sin administración registrada"}
+
+CITAS MÉDICAS:
+${apptText || "Sin citas en el período"}
+
+NOTAS ANTERIORES (no copiar estilo, generar texto 100% original):
 ${prevText || "Sin notas previas"}
 
-${isConsolidated ? "NOTA: Esta es una nota consolidada de TODOS los residentes del turno. Genera un informe general que cubra a todos." : ""}
-
-Redacta la nota de forma fresca, profesional y completamente original.`;
+Redacta la nota cumpliendo estrictamente el tipo (${noteType.toUpperCase()}), el formato Markdown con **negritas** e *cursivas*, y el cierre obligatorio con "Registrado por…".`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
