@@ -195,6 +195,8 @@ const SmartReportSection = ({ module, formTitle, residentId, residentName, formD
               fileName={`${module}_${residentName || "informe"}_${new Date().toISOString().split("T")[0]}`}
               textContent={getReportText()}
               signatureDataUrl={signature}
+              responsibleName={responsibleName}
+              responsibleRole={responsibleRole}
             />
             <ShareButtons title={`${formTitle} ${residentName || ""}`} text={getReportText()} />
             <button onClick={saveToHistory}
