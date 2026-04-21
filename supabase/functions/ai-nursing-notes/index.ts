@@ -48,11 +48,8 @@ serve(async (req) => {
     // ===== END AUTH CHECK =====
 
     const body = await req.json();
-    const { residentId, dateFrom, dateTo, shift, isConsolidated } = body;
+    const { residentId, dateFrom, dateTo, shift, isConsolidated, liveEntry, responsibleName, responsibleRole } = body;
     // Determinar tipo de nota: individual | grupal | consolidado
-    // - individual: un residente, un día/turno
-    // - grupal: todos los residentes en un turno/día
-    // - consolidado: un residente en un rango de fechas (evolución)
     const isRangeReport = dateFrom !== dateTo;
     const noteType: "individual" | "grupal" | "consolidado" =
       isConsolidated && !residentId ? "grupal"
@@ -91,7 +88,7 @@ serve(async (req) => {
     if (!isConsolidated && residentId) incQuery = incQuery.eq("resident_id", residentId);
     const { data: incidents } = await incQuery;
 
-    if ((!logs || logs.length === 0) && (!vitals || vitals.length === 0)) {
+    if ((!logs || logs.length === 0) && (!vitals || vitals.length === 0) && !liveEntry) {
       return new Response(JSON.stringify({ note: null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -113,6 +110,13 @@ serve(async (req) => {
     if (!isConsolidated && residentId) prevQuery = prevQuery.eq("resident_id", residentId);
     const { data: prevNotes } = await prevQuery;
 
+    // Lookup resident name if needed (case where only liveEntry is provided)
+    let residentNameFromDb: string | null = null;
+    if (residentId && noteType !== "grupal") {
+      const { data: r } = await serviceClient.from("residents").select("full_name").eq("id", residentId).maybeSingle();
+      residentNameFromDb = r?.full_name || null;
+    }
+
     const logsText = (logs || []).map((l: any) =>
       `${l.log_date} ${l.shift}: ${l.residents?.full_name || 'Residente'} - Nutrición:${l.nutrition_pct}%, Hidratación:${l.hydration_glasses} vasos, Ánimo:${l.mood}, Eliminación:${l.elimination}, Obs:${l.observations || 'N/A'}`
     ).join("\n");
@@ -120,6 +124,14 @@ serve(async (req) => {
     const vitalsText = (vitals || []).map((v: any) =>
       `${v.record_date}: ${v.residents?.full_name || 'Residente'} - PA:${v.blood_pressure}, FC:${v.heart_rate}, T:${v.temperature}°C, SpO2:${v.spo2}%, Peso:${v.weight}kg, Glicemia:${v.glucose}`
     ).join("\n");
+
+    // Datos en pantalla (sin guardar) — fuente principal cuando se genera desde el formulario
+    const liveEntryText = liveEntry ? `${dateFrom} ${shift}: ${residentNameFromDb || 'Residente'}
+- Signos vitales: T.A. ${liveEntry.blood_pressure || 'N/R'}, SpO2 ${liveEntry.spo2 ?? 'N/R'}%, Temp ${liveEntry.temperature ?? 'N/R'}°C, Glucemia ${liveEntry.glucose ?? 'N/R'}, FC ${liveEntry.heart_rate ?? 'N/R'}, Peso ${liveEntry.weight ?? 'N/R'} kg
+- Notas SV: ${liveEntry.vital_notes || 'Sin notas'}
+- Bienestar: Nutrición ${liveEntry.nutrition_pct ?? 0}%, Hidratación ${liveEntry.hydration_glasses ?? 0} vasos, Eliminación: ${liveEntry.elimination || 'N/R'}
+- Estado de ánimo: ${liveEntry.mood || 'N/R'}
+- Novedades / observaciones: ${liveEntry.observations || 'Sin novedades'}` : "";
 
     const incText = (incidents || []).map((i: any) =>
       `${i.incident_datetime}: ${i.residents?.full_name} - Tipo:${i.incident_type}, Desc:${i.description}`
@@ -137,7 +149,11 @@ serve(async (req) => {
 
     const residentName = noteType === "grupal"
       ? "TODOS los residentes del turno"
-      : (logs?.[0]?.residents?.full_name || vitals?.[0]?.residents?.full_name || "el/la residente");
+      : (logs?.[0]?.residents?.full_name || vitals?.[0]?.residents?.full_name || residentNameFromDb || "el/la residente");
+
+    const responsibleLine = responsibleName
+      ? `${responsibleName}${responsibleRole ? ' — ' + responsibleRole : ''}`
+      : '[responsable del turno]';
 
     // ===== PROMPTS MAESTROS (según Manual de Implementación Técnica - Belén Gestión) =====
     const baseSystem = `Actúas como enfermera clínica del **Hogar Belén Buesaco S.A.S.** (Buesaco, Nariño), con más de 15 años de experiencia en cuidado del adulto mayor. Lema institucional: *"Juntos, cuidamos mejor"*.
@@ -150,19 +166,19 @@ serve(async (req) => {
 - **Estado de Ánimo:** 😊 Alegre / 😌 Tranquilo / 😰 Ansioso / 😢 Triste / 😤 Agitado / 😶 Apático
 - **Novedades:** medicamentos administrados, terapias, actividades, citas médicas e incidentes (HB-F20)
 
-**Cierre obligatorio** (al final del texto):
+**Cierre obligatorio** (al final del texto, EXACTAMENTE este formato):
 > Nota generada por IA — Hogar Belén Buesaco S.A.S.
-> Registrado por: [responsable del turno] | Fecha: [DD/MM/AAAA] | Hora: [HH:MM]`;
+> Registrado por: ${responsibleLine} | Fecha: ${dateFrom} | Hora: (usa la hora actual del servidor en formato HH:MM)`;
 
     let promptByType = "";
     if (noteType === "individual") {
       promptByType = `**TIPO: NOTA INDIVIDUAL**
 
-Redacta una nota para **${residentName}**. Basado en sus signos vitales y su ánimo, narra una jornada de bienestar. Menciona la nutrición al X% y la administración de medicamentos con un tono dulce y profesional. Resalta en **negrita** los hitos clínicos y en *cursiva* el confort y la calidez del cuidado.
+Redacta una nota para **${residentName}**. Basado en sus signos vitales y su ánimo, narra una jornada de bienestar. Menciona la nutrición al porcentaje EXACTO indicado y la administración de medicamentos con un tono dulce y profesional. Resalta en **negrita** los hitos clínicos y en *cursiva* el confort y la calidez del cuidado.
 
 Estructura sugerida (adáptala con naturalidad, máximo 450 palabras):
 1. *Apertura cálida* con valoración general
-2. **Signos vitales** del turno
+2. **Signos vitales** del turno (cita los valores exactos)
 3. **Nutrición e hidratación** (porcentaje exacto)
 4. Patrón de **eliminación** y **estado de ánimo**
 5. **Medicamentos**, terapias y actividades realizadas
@@ -182,11 +198,13 @@ Agrupa las novedades de **${residentName}** desde el **${dateFrom}** hasta el **
 
     const userPrompt = `Datos del período ${dateFrom} → ${dateTo} | Turno: ${shift || 'N/A'} | Tipo: ${noteType.toUpperCase()}
 Paciente: ${residentName}
+Responsable del turno: ${responsibleLine}
 
-DATOS DE BITÁCORA (HB-F4):
-${logsText || "Sin datos de bitácora"}
+${liveEntryText ? `DATOS ACTUALES DEL TURNO (fuente principal — diligenciados ahora mismo en HB-F4):\n${liveEntryText}\n` : ''}
+DATOS DE BITÁCORA HISTÓRICOS (HB-F4):
+${logsText || "Sin datos de bitácora guardados"}
 
-SIGNOS VITALES:
+SIGNOS VITALES HISTÓRICOS:
 ${vitalsText || "Sin signos vitales registrados"}
 
 INCIDENTES (HB-F20):
@@ -201,7 +219,7 @@ ${apptText || "Sin citas en el período"}
 NOTAS ANTERIORES (no copiar estilo, generar texto 100% original):
 ${prevText || "Sin notas previas"}
 
-Redacta la nota cumpliendo estrictamente el tipo (${noteType.toUpperCase()}), el formato Markdown con **negritas** e *cursivas*, y el cierre obligatorio con "Registrado por…".`;
+Redacta la nota cumpliendo estrictamente el tipo (${noteType.toUpperCase()}), el formato Markdown con **negritas** y *cursivas*, citando los valores EXACTOS de signos vitales y el porcentaje EXACTO de nutrición, y el cierre obligatorio con "Registrado por: ${responsibleLine}".`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
